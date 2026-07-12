@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #05030d;
+  --color-canvas-soft: #090514;
+  --color-canvas-elevated: #0c0818;
+  --color-primary: #7c3aed;
+  --color-secondary: #a855f7;
+  --color-accent: #c084fc;
+  --color-ink: #f8f8ff;
+  --color-ink-muted: rgb(255 255 255 / 70%);
+  --color-glass: rgb(255 255 255 / 5%);
+  --color-glass-strong: rgb(255 255 255 / 8%);
+  --color-glass-border: rgb(255 255 255 / 10%);
+
+  --font-sans: "Cairo", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-glow: 0 0 80px rgb(168 85 247 / 30%);
+  --shadow-glow-sm: 0 0 24px rgb(168 85 247 / 25%);
+  --shadow-glass: 0 8px 32px rgb(5 3 13 / 40%), inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+html,
+body,
+#root {
+  background: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}

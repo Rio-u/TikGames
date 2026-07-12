@@ -1,0 +1,33 @@
+@echo off
+setlocal
+
+set "ROOT=%~dp0"
+if not exist "%ROOT%.logs" mkdir "%ROOT%.logs"
+
+echo [tikgames] Starting MongoDB...
+call "%ROOT%start-mongo.bat"
+if errorlevel 1 (
+  echo [tikgames] MongoDB failed to start - aborting.
+  exit /b 1
+)
+
+echo [tikgames] Starting API, tiktok-connector, dashboard, and overlay in the background...
+start /min "" /D "%ROOT%" cmd /c "pnpm --filter @tikgames/api dev > .logs\api.log 2>&1"
+start /min "" /D "%ROOT%" cmd /c "pnpm --filter @tikgames/tiktok-connector dev > .logs\connector.log 2>&1"
+start /min "" /D "%ROOT%" cmd /c "pnpm --filter @tikgames/dashboard dev > .logs\dashboard.log 2>&1"
+start /min "" /D "%ROOT%" cmd /c "pnpm --filter @tikgames/overlay dev > .logs\overlay.log 2>&1"
+
+echo [tikgames] Waiting a few seconds for everything to boot...
+timeout /t 6 /nobreak >nul
+
+echo.
+echo ================================================
+echo   TikGames is running
+echo ================================================
+echo   Dashboard : http://localhost:5173
+echo   Overlay   : http://localhost:5174
+echo   API       : http://localhost:4000/health
+echo ================================================
+echo   Logs:  %ROOT%.logs\  (api.log, connector.log, dashboard.log, overlay.log, mongod.log)
+echo   Stop:  stop.bat
+echo ================================================

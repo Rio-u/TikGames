@@ -1,0 +1,384 @@
+// TikGames — core database schema (MongoDB).
+// See root README.md for the architecture this schema supports.
+//
+// MongoDB has no foreign keys, so relations are emulated by Prisma Client itself
+// (relationMode = "prisma") rather than enforced by the database — onDelete: Cascade etc.
+// are executed as separate queries by Prisma, not DB-level constraints.
+// MongoDB also requires the server to run as a replica set for Prisma's transactions
+// (nested writes) to work — see start-mongo.bat, which initializes a single-node replica set.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider     = "mongodb"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+enum UserRole {
+  STREAMER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum PaymentProvider {
+  MANUAL
+  PAYMOB
+  PAYTABS
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum LiveSourcePlatform {
+  TIKTOK
+  KICK
+}
+
+enum LiveSessionStatus {
+  PENDING
+  CONNECTING
+  LIVE
+  ENDED
+  ERROR
+}
+
+enum GameType {
+  MUSICAL_CHAIRS
+  TRIVIA
+  GUESS_NUMBER
+  SPIN_WHEEL
+  WOULD_YOU_RATHER
+  FLAGS
+  CAPITALS
+  LOGOS
+  SPEED_WORD
+}
+
+enum GameSessionStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  username     String   @unique // handle, distinct from displayName — ASCII only
+  passwordHash String? // null if the account was created via OAuth only
+  displayName  String
+  avatarUrl    String?
+  role         UserRole @default(STREAMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscription         Subscription?
+  tikTokAccount        TikTokAccount?
+  discordAccount       DiscordAccount?
+  liveSessions         LiveSession[]
+  gameConfigs          GameConfig[]
+  refreshTokens        RefreshToken[]
+  resolvedAlerts       Alert[]                 @relation("AlertResolvedBy")
+  adminActions         AdminActionLog[]        @relation("AdminActor")
+  activatedSubs        Subscription[]          @relation("SubscriptionActivatedBy")
+  uploadedTriviaImages TriviaBackgroundImage[] @relation("TriviaImageUploader")
+  uploadedMusicTracks  MusicalChairsTrack[]    @relation("MusicTrackUploader")
+  uploadedSpeedWordImages SpeedWordBackgroundImage[] @relation("SpeedWordImageUploader")
+  viewerRankings       ViewerRanking[]
+}
+
+model RefreshToken {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model TikTokAccount {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @unique @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username       String // @handle to watch live
+  tiktokUserId   String? // set only if connected via TikTok OAuth login
+  displayName    String?
+  avatarUrl      String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  connectedAt    DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([tiktokUserId])
+}
+
+model DiscordAccount {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @unique @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discordUserId  String // Discord's numeric snowflake id
+  username       String // Discord handle at time of connect
+  avatarUrl      String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  connectedAt    DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([discordUserId])
+}
+
+model Subscription {
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String             @unique @db.ObjectId
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime
+  currentPeriodEnd DateTime?
+  activatedById    String?            @db.ObjectId
+  activatedBy      User?              @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id])
+  activatedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  payments Payment[]
+}
+
+model Payment {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionId String          @db.ObjectId
+  subscription   Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  provider       PaymentProvider
+  providerRef    String?
+  amount         Int // stored in minor currency units (e.g. cents/qirsh) — MongoDB has no Decimal type
+  currency       String          @default("USD")
+  status         PaymentStatus   @default(PENDING)
+  rawPayload     Json?
+  createdAt      DateTime        @default(now())
+
+  @@index([subscriptionId])
+}
+
+model LiveSession {
+  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String             @db.ObjectId
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform            LiveSourcePlatform @default(TIKTOK)
+  channelUsername     String
+  status              LiveSessionStatus  @default(PENDING)
+  overlayToken        String             @unique @default(cuid())
+  connectorInstanceId String?
+  startedAt           DateTime?
+  endedAt             DateTime?
+  lastHeartbeatAt     DateTime?
+  createdAt           DateTime           @default(now())
+
+  gameSessions GameSession[]
+  alerts       Alert[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model GameConfig {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameType  GameType
+  name      String
+  settings  Json // shape depends on gameType (duration, keywords, choices, ...)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gameSessions GameSession[]
+
+  @@index([userId, gameType])
+}
+
+model GameSession {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  liveSessionId String            @db.ObjectId
+  liveSession   LiveSession       @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+  gameConfigId  String?           @db.ObjectId
+  gameConfig    GameConfig?       @relation(fields: [gameConfigId], references: [id])
+  gameType      GameType
+  status        GameSessionStatus @default(PENDING)
+  state         Json              @default("{}") // runtime state-machine snapshot
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime          @default(now())
+
+  participants GameSessionParticipant[]
+
+  @@index([liveSessionId])
+}
+
+model GameSessionParticipant {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  gameSessionId String      @db.ObjectId
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  viewerHandle  String // TikTok commenter username — no separate viewer account
+  displayName   String?
+  score         Int         @default(0)
+  metadata      Json?
+  joinedAt      DateTime    @default(now())
+
+  @@unique([gameSessionId, viewerHandle])
+  @@index([gameSessionId])
+}
+
+model Alert {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  severity      AlertSeverity
+  status        AlertStatus   @default(OPEN)
+  source        String // e.g. "tiktok-connector"
+  liveSessionId String?       @db.ObjectId
+  liveSession   LiveSession?  @relation(fields: [liveSessionId], references: [id], onDelete: SetNull)
+  message       String
+  detail        Json?
+  createdAt     DateTime      @default(now())
+  resolvedAt    DateTime?
+  resolvedById  String?       @db.ObjectId
+  resolvedBy    User?         @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([status, severity])
+}
+
+model AdminActionLog {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  adminUserId  String   @db.ObjectId
+  adminUser    User     @relation("AdminActor", fields: [adminUserId], references: [id])
+  action       String // e.g. "SUBSCRIPTION_ACTIVATED"
+  targetUserId String?  @db.ObjectId
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([adminUserId])
+}
+
+// Platform-wide (not per-user) pool of background images for the Trivia game, curated by
+// admins only — every streamer's Trivia session draws a random image from this same pool.
+model TriviaBackgroundImage {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  url          String
+  uploadedById String   @db.ObjectId
+  uploadedBy   User     @relation("TriviaImageUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+// Platform-wide (not per-user) pool of background images for the Speed Word game — same
+// precedent as TriviaBackgroundImage, every streamer's session draws a random image from here.
+model SpeedWordBackgroundImage {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  url          String
+  uploadedById String   @db.ObjectId
+  uploadedBy   User     @relation("SpeedWordImageUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+// Platform-wide per-game kill switch, admin-controlled. A missing row means enabled (fail-open,
+// so this never blocks a GameType nobody has touched) — see POST /games/session/start.
+model GameToggle {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  gameType    GameType @unique
+  enabled     Boolean  @default(true)
+  updatedById String?  @db.ObjectId
+  updatedAt   DateTime @updatedAt
+}
+
+// Platform-wide (not per-user) admin-editable overrides for a game's library-card presentation
+// and control-page explainer content. Missing row (or a null field within an existing row) means
+// "use the hardcoded GameDefinition in apps/dashboard/src/data/games.ts instead" — same fail-open
+// precedent as GameToggle. emoji/gradient/route are never part of this model (stay hardcoded).
+model GameContent {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  gameType      GameType @unique
+  nameAr        String?
+  descriptionAr String?
+  bioAr         String? // "شرح اللعبة" — prose, rendered whitespace-pre-line on the control page
+  rulesAr       String? // "قواعد التشغيل" — plain multi-line string, one rule per line, split into a bullet list client-side
+  imageUrl      String?
+  updatedById   String?  @db.ObjectId
+  updatedAt     DateTime @updatedAt
+}
+
+// Platform-wide dashboard homepage content — a single admin-managed row (the `key` unique field
+// is always "homepage", giving this a stable target to upsert/query without a real singleton
+// primitive in Mongo). `featuredGameTypes` picks up to 3 games for the dashboard's "spotlight"
+// row above the full library grid; both fields are independently optional — an unset heroTitle
+// just means no hero banner, an empty featuredGameTypes just means no spotlight row, and the
+// dashboard falls back to exactly today's layout until an admin sets either.
+model HomepageSettings {
+  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  key               String     @unique @default("homepage")
+  heroTitle         String?
+  featuredGameTypes GameType[]
+  updatedById       String?    @db.ObjectId
+  updatedAt         DateTime   @updatedAt
+}
+
+// Permanent per-streamer viewer leaderboard: how many points a given TikTok handle has earned
+// across every game session played in a given streamer's lives, ever — independent per streamer
+// (the same handle can rank differently, or not at all, with a different streamer). Updated
+// incrementally from apps/api/src/routes/games.ts's generic onChange callback, never recomputed
+// from scratch — see apps/api/src/lib/leaderboard.ts.
+model ViewerRanking {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  streamerId   String   @db.ObjectId
+  streamer     User     @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  viewerHandle String
+  displayName  String
+  avatarUrl    String?
+  totalScore   Int      @default(0)
+  gamesPlayed  Int      @default(0)
+  lastPlayedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([streamerId, viewerHandle])
+  @@index([streamerId, totalScore])
+}
+
+// Platform-wide (not per-user) pool of music tracks for Musical Chairs' "music playing" phase,
+// curated by admins only — same precedent as TriviaBackgroundImage. Each session picks one at
+// random when it starts (see MusicalChairsEngine); an empty pool just means no music, not a
+// blocked session — music is atmosphere, not required content.
+model MusicalChairsTrack {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  url          String
+  uploadedById String   @db.ObjectId
+  uploadedBy   User     @relation("MusicTrackUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}

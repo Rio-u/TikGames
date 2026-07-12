@@ -1,0 +1,21 @@
+{
+  "name": "@tikgames/tiktok-connector",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone microservice that connects to TikTok LIVE rooms via the unofficial tiktok-live-connector library, normalizes events, and streams them to apps/api. Implements the LiveSourceConnector contract from @tikgames/shared-types so Kick (or other platforms) can be added later without touching apps/api.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@tikgames/shared-types": "workspace:*",
+    "dotenv": "^16.4.5",
+    "socket.io-client": "^4.8.1",
+    "tiktok-live-connector": "^2.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

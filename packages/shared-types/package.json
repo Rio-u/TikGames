@@ -1,0 +1,9 @@
+{
+  "name": "@tikgames/shared-types",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared TypeScript contracts: the LiveSourceConnector interface, WebSocket event DTOs, and game state types used by apps/api, apps/tiktok-connector, apps/dashboard, and apps/overlay.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts"
+}

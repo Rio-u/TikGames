@@ -1,0 +1,9 @@
+{
+  "name": "@tikgames/config",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared tsconfig base used by every app and package in the workspace.",
+  "files": [
+    "tsconfig.base.json"
+  ]
+}
