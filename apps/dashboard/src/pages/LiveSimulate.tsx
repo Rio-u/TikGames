@@ -73,6 +73,10 @@ function gameStatusText(state: GameState): string {
         : state.phase === "QUESTION"
           ? `كلمة ${state.round} — اكتبها بالظبط`
           : `كلمة ${state.round} — الكلمة: ${state.word}`;
+    case "MAZE":
+      return state.phase === "WAITING_FOR_PLAYERS"
+        ? `بانتظار اللاعبين — ${state.players.length} / ${state.settings.maxPlayers} — أمر الانضمام: ${state.settings.joinCommand}`
+        : "السباق شغال — اكتب 1 لـ 4 عشان تتحرك، !فخ عشان تحط فخ";
   }
 }
 

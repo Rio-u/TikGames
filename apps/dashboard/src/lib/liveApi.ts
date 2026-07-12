@@ -9,7 +9,8 @@ export type GameType =
   | "FLAGS"
   | "CAPITALS"
   | "LOGOS"
-  | "SPEED_WORD";
+  | "SPEED_WORD"
+  | "MAZE";
 
 export interface LiveSession {
   id: string;
@@ -66,6 +67,13 @@ export interface LogosSettings {
 
 export interface SpeedWordSettings {
   answerDurationSeconds: number;
+}
+
+export interface MazeSettings {
+  maxPlayers: number;
+  joinCommand: string;
+  gridSize: number;
+  durationSeconds: number;
 }
 
 export type GameConfig =
@@ -292,6 +300,30 @@ export interface SpeedWordState {
   phaseEndsAt: string | null;
 }
 
+export interface MazePlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  x: number;
+  y: number;
+  hasUsedTrap: boolean;
+}
+
+export interface MazeState {
+  gameType: "MAZE";
+  gameSessionId: string;
+  phase: "WAITING_FOR_PLAYERS" | "RACING" | "FINISHED";
+  settings: MazeSettings;
+  players: MazePlayer[];
+  round: number;
+  winner: MazePlayer | null;
+  grid: { size: number; cells: number[][] };
+  start: { x: number; y: number };
+  exit: { x: number; y: number };
+  lastTrap: { atX: number; atY: number; victimHandle: string } | null;
+  phaseEndsAt: string | null;
+}
+
 export type GameState =
   | MusicalChairsState
   | TriviaState
@@ -301,7 +333,8 @@ export type GameState =
   | FlagsState
   | CapitalsState
   | LogosState
-  | SpeedWordState;
+  | SpeedWordState
+  | MazeState;
 
 export async function startLive(channelUsername: string) {
   const res = await authedFetch("/live/start", {

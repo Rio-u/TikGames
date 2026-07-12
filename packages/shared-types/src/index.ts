@@ -124,7 +124,8 @@ export type GameType =
   | "FLAGS"
   | "CAPITALS"
   | "LOGOS"
-  | "SPEED_WORD";
+  | "SPEED_WORD"
+  | "MAZE";
 
 export const GAME_TYPES: GameType[] = [
   "MUSICAL_CHAIRS",
@@ -136,6 +137,7 @@ export const GAME_TYPES: GameType[] = [
   "CAPITALS",
   "LOGOS",
   "SPEED_WORD",
+  "MAZE",
 ];
 
 export interface MusicalChairsSettings {
@@ -475,6 +477,51 @@ export interface SpeedWordState {
   backgroundUrl: string | null;
   lastWinner: SpeedWordPlayer | null;
   winner: SpeedWordPlayer | null;
+  phaseEndsAt: string | null;
+}
+
+// --- Maze (متاهة) game engine ---------------------------------------------------------
+
+export interface MazeSettings {
+  maxPlayers: number;
+  /** Chat command that registers a join during WAITING_FOR_PLAYERS, e.g. "!دخول". */
+  joinCommand: string;
+  /** Maze is gridSize × gridSize cells. */
+  gridSize: number;
+  /** Safety cap — if nobody reaches the exit in time, the race ends with no winner. */
+  durationSeconds: number;
+}
+
+export type MazePhase = "WAITING_FOR_PLAYERS" | "RACING" | "FINISHED";
+
+export interface MazePlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  x: number;
+  y: number;
+  /** Each player gets exactly one trap for the whole race. */
+  hasUsedTrap: boolean;
+}
+
+export interface MazeState {
+  gameType: "MAZE";
+  gameSessionId: string;
+  phase: MazePhase;
+  settings: MazeSettings;
+  players: MazePlayer[];
+  round: number;
+  winner: MazePlayer | null;
+  /** One 4-bit wall-bitmask per cell: 1=N open, 2=E open, 4=S open, 8=W open. Generated once per
+   *  session as a perfect maze (recursive backtracker), so it's always solvable. */
+  grid: { size: number; cells: number[][] };
+  start: { x: number; y: number };
+  exit: { x: number; y: number };
+  /** Traps themselves are never in this state (like GuessNumberState.secret pre-FINISHED) — there
+   *  is no per-namespace filtering anywhere in this codebase, so a trap visible to its owner would
+   *  be visible to everyone. This field only flashes for one broadcast when a trap triggers, then
+   *  self-clears, carrying no owner identity — just enough for a "💥" effect. */
+  lastTrap: { atX: number; atY: number; victimHandle: string } | null;
   phaseEndsAt: string | null;
 }
 

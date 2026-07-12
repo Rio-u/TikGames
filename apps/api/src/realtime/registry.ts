@@ -4,6 +4,7 @@ import type { CapitalsEngine } from "../games/capitals.js";
 import type { FlagsEngine } from "../games/flags.js";
 import type { GuessNumberEngine } from "../games/guessNumber.js";
 import type { LogosEngine } from "../games/logos.js";
+import type { MazeEngine } from "../games/maze.js";
 import type { MusicalChairsEngine } from "../games/musicalChairs.js";
 import type { SpeedWordEngine } from "../games/speedWord.js";
 import type { SpinWheelEngine } from "../games/spinWheel.js";
@@ -19,7 +20,8 @@ export type AnyGameEngine =
   | FlagsEngine
   | CapitalsEngine
   | LogosEngine
-  | SpeedWordEngine;
+  | SpeedWordEngine
+  | MazeEngine;
 
 // In-memory, single-instance state. Fine at our current scale (matches the same pattern already
 // used for OAuth pendingStates/pendingExchanges in routes/auth.ts) — move to Redis before running

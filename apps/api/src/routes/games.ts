@@ -8,6 +8,8 @@ import {
   type GuessNumberState,
   type LogosSettings,
   type LogosState,
+  type MazeSettings,
+  type MazeState,
   type MusicalChairsSettings,
   type MusicalChairsState,
   type SpeedWordSettings,
@@ -24,6 +26,7 @@ import { CapitalsEngine } from "../games/capitals.js";
 import { FlagsEngine } from "../games/flags.js";
 import { GuessNumberEngine } from "../games/guessNumber.js";
 import { LogosEngine } from "../games/logos.js";
+import { MazeEngine } from "../games/maze.js";
 import { MusicalChairsEngine } from "../games/musicalChairs.js";
 import { SpeedWordEngine } from "../games/speedWord.js";
 import { SpinWheelEngine } from "../games/spinWheel.js";
@@ -51,6 +54,7 @@ const DEFAULT_FLAGS_SETTINGS: FlagsSettings = { totalRounds: 10, answerDurationS
 const DEFAULT_CAPITALS_SETTINGS: CapitalsSettings = { totalRounds: 10, answerDurationSeconds: 15 };
 const DEFAULT_LOGOS_SETTINGS: LogosSettings = { totalRounds: 10, answerDurationSeconds: 15 };
 const DEFAULT_SPEED_WORD_SETTINGS: SpeedWordSettings = { answerDurationSeconds: 12 };
+const DEFAULT_MAZE_SETTINGS: MazeSettings = { maxPlayers: 20, joinCommand: "!دخول", gridSize: 9, durationSeconds: 180 };
 
 router.get(
   "/toggles",
@@ -336,6 +340,44 @@ router.post(
       return;
     }
 
+    if (gameType === "MAZE") {
+      const maxPlayers = Number(settings?.maxPlayers ?? DEFAULT_MAZE_SETTINGS.maxPlayers);
+      if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 100) {
+        res.status(400).json({ error: "عدد اللاعبين لازم يكون بين 2 و 100" });
+        return;
+      }
+
+      const joinCommandRaw = settings?.joinCommand ?? DEFAULT_MAZE_SETTINGS.joinCommand;
+      const joinCommand = typeof joinCommandRaw === "string" ? joinCommandRaw.trim() : "";
+      if (!joinCommand || joinCommand.length > 30) {
+        res.status(400).json({ error: "أمر الانضمام لازم يكون من 1 لـ 30 حرف" });
+        return;
+      }
+
+      const gridSize = Number(settings?.gridSize ?? DEFAULT_MAZE_SETTINGS.gridSize);
+      if (!Number.isInteger(gridSize) || gridSize < 5 || gridSize > 15) {
+        res.status(400).json({ error: "حجم المتاهة لازم يكون بين 5 و 15" });
+        return;
+      }
+
+      const durationSeconds = Number(settings?.durationSeconds ?? DEFAULT_MAZE_SETTINGS.durationSeconds);
+      if (!Number.isInteger(durationSeconds) || durationSeconds < 30 || durationSeconds > 600) {
+        res.status(400).json({ error: "مدة السباق لازم تكون بين 30 و 600 ثانية" });
+        return;
+      }
+
+      const config = await prisma.gameConfig.create({
+        data: {
+          userId: req.userId!,
+          gameType: "MAZE",
+          name: typeof name === "string" && name.trim() ? name.trim() : "متاهة",
+          settings: { maxPlayers, joinCommand, gridSize, durationSeconds } satisfies MazeSettings,
+        },
+      });
+      res.status(201).json({ config });
+      return;
+    }
+
     res.status(400).json({ error: "النوع ده لسه مش متاح" });
   }),
 );
@@ -357,7 +399,8 @@ router.get(
           gameType === "FLAGS" ||
           gameType === "CAPITALS" ||
           gameType === "LOGOS" ||
-          gameType === "SPEED_WORD"
+          gameType === "SPEED_WORD" ||
+          gameType === "MAZE"
             ? gameType
             : undefined,
       },
@@ -385,7 +428,8 @@ router.post(
       gameType !== "FLAGS" &&
       gameType !== "CAPITALS" &&
       gameType !== "LOGOS" &&
-      gameType !== "SPEED_WORD"
+      gameType !== "SPEED_WORD" &&
+      gameType !== "MAZE"
     ) {
       res.status(400).json({ error: "gameType غير مدعوم" });
       return;
@@ -412,7 +456,8 @@ router.post(
       | FlagsSettings
       | CapitalsSettings
       | LogosSettings
-      | SpeedWordSettings;
+      | SpeedWordSettings
+      | MazeSettings;
     const defaultSettingsByType: Record<typeof gameType, AnyGameSettings> = {
       MUSICAL_CHAIRS: DEFAULT_MUSICAL_CHAIRS_SETTINGS,
       TRIVIA: DEFAULT_TRIVIA_SETTINGS,
@@ -423,6 +468,7 @@ router.post(
       CAPITALS: DEFAULT_CAPITALS_SETTINGS,
       LOGOS: DEFAULT_LOGOS_SETTINGS,
       SPEED_WORD: DEFAULT_SPEED_WORD_SETTINGS,
+      MAZE: DEFAULT_MAZE_SETTINGS,
     };
     let settings: AnyGameSettings = defaultSettingsByType[gameType]!;
     let gameConfigIdToUse: string | undefined;
@@ -502,7 +548,8 @@ router.post(
         | FlagsState
         | CapitalsState
         | LogosState
-        | SpeedWordState,
+        | SpeedWordState
+        | MazeState,
     ) => {
       prisma.gameSession
         .update({ where: { id: gameSession.id }, data: { state: JSON.parse(JSON.stringify(state)) } })
@@ -527,7 +574,10 @@ router.post(
           );
         }
       } else if (
-        (state.gameType === "MUSICAL_CHAIRS" || state.gameType === "SPIN_WHEEL" || state.gameType === "GUESS_NUMBER") &&
+        (state.gameType === "MUSICAL_CHAIRS" ||
+          state.gameType === "SPIN_WHEEL" ||
+          state.gameType === "GUESS_NUMBER" ||
+          state.gameType === "MAZE") &&
         state.phase === "FINISHED" &&
         state.winner &&
         !winnerAwarded
@@ -579,7 +629,9 @@ router.post(
                     ? new CapitalsEngine(gameSession.id, settings as CapitalsSettings, onChange)
                     : gameType === "LOGOS"
                       ? new LogosEngine(gameSession.id, settings as LogosSettings, onChange)
-                      : new SpeedWordEngine(gameSession.id, settings as SpeedWordSettings, speedWordBackgroundPool, onChange);
+                      : gameType === "SPEED_WORD"
+                        ? new SpeedWordEngine(gameSession.id, settings as SpeedWordSettings, speedWordBackgroundPool, onChange)
+                        : new MazeEngine(gameSession.id, settings as MazeSettings, onChange);
 
     activeEngines.set(gameSession.id, engine);
     liveSessionToGameSession.set(liveSessionId, gameSession.id);

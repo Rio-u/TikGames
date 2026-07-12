@@ -15,6 +15,7 @@ import {
   type FlagsSettings,
   type GuessNumberSettings,
   type LogosSettings,
+  type MazeSettings,
   type MusicalChairsSettings,
   type SpeedWordSettings,
   type SpinWheelSettings,
@@ -54,7 +55,8 @@ export interface GameControlShellProps<TState extends GameState> {
     | FlagsSettings
     | CapitalsSettings
     | LogosSettings
-    | SpeedWordSettings;
+    | SpeedWordSettings
+    | MazeSettings;
   renderSettings: () => ReactNode;
   /** `onNewRound` is the same handler behind the header's "لعبة جديدة" button — pass it to
    *  `NoWinnerScreen` (or any other in-view "play again" affordance) instead of duplicating the

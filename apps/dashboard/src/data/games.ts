@@ -101,4 +101,13 @@ export const GAMES: GameDefinition[] = [
     imageUrl: "/games/speed-word.jpg",
     route: "/live/speed-word",
   },
+  {
+    id: "MAZE",
+    nameAr: "متاهة",
+    descriptionAr: "اللاعبين يدخلوا بأمر ويتسابقوا جوه متاهة بكتابة أرقام من 1 لـ 4 — وكل واحد يقدر يحط فخ مخفي. أول واحد يوصل للكأس يكسب.",
+    emoji: "🧩",
+    gradient: "from-teal-500/35 via-emerald-600/20 to-canvas-elevated",
+    imageUrl: "/games/maze.jpg",
+    route: "/live/maze",
+  },
 ];

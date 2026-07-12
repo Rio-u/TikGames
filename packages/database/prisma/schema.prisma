@@ -66,6 +66,7 @@ enum GameType {
   CAPITALS
   LOGOS
   SPEED_WORD
+  MAZE
 }
 
 enum GameSessionStatus {

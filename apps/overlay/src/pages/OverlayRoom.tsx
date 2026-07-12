@@ -3,6 +3,7 @@ import type {
   FlagsState,
   GuessNumberState,
   LogosState,
+  MazeState,
   MusicalChairsState,
   SpeedWordState,
   SpinWheelState,
@@ -16,6 +17,7 @@ import { type ChatItem } from "../components/ChatStrip";
 import { FlagsOverlay } from "../components/FlagsOverlay";
 import { GuessNumberOverlay } from "../components/GuessNumberOverlay";
 import { LogosOverlay } from "../components/LogosOverlay";
+import { MazeOverlay } from "../components/MazeOverlay";
 import { MusicalChairsOverlay } from "../components/MusicalChairsOverlay";
 import { SpeedWordOverlay } from "../components/SpeedWordOverlay";
 import { SpinWheelOverlay } from "../components/SpinWheelOverlay";
@@ -32,7 +34,8 @@ type GameState =
   | FlagsState
   | CapitalsState
   | LogosState
-  | SpeedWordState;
+  | SpeedWordState
+  | MazeState;
 
 export default function OverlayRoom() {
   const { overlayToken } = useParams();
@@ -81,6 +84,9 @@ export default function OverlayRoom() {
   }
   if (gameState?.gameType === "SPEED_WORD") {
     return <SpeedWordOverlay state={gameState} chat={chat} />;
+  }
+  if (gameState?.gameType === "MAZE") {
+    return <MazeOverlay state={gameState} chat={chat} />;
   }
   return <MusicalChairsOverlay state={gameState} chat={chat} />;
 }

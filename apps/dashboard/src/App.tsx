@@ -15,6 +15,7 @@ import LiveConnect from "./pages/LiveConnect";
 import LiveSimulate from "./pages/LiveSimulate";
 import LogosControl from "./pages/LogosControl";
 import Login from "./pages/Login";
+import MazeControl from "./pages/MazeControl";
 import MusicalChairsControl from "./pages/MusicalChairsControl";
 import NotFound from "./pages/NotFound";
 import Privacy from "./pages/Privacy";
@@ -142,6 +143,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <SpeedWordControl />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/live/maze"
+              element={
+                <ProtectedRoute>
+                  <MazeControl />
                 </ProtectedRoute>
               }
             />
