@@ -2,6 +2,8 @@ import {
   LiveSocketEvents,
   type CapitalsSettings,
   type CapitalsState,
+  type DrawingSettings,
+  type DrawingState,
   type FlagsSettings,
   type FlagsState,
   type GuessNumberSettings,
@@ -23,6 +25,7 @@ import {
 } from "@tikgames/shared-types";
 import { Router } from "express";
 import { CapitalsEngine } from "../games/capitals.js";
+import { DrawingEngine } from "../games/drawing.js";
 import { FlagsEngine } from "../games/flags.js";
 import { GuessNumberEngine } from "../games/guessNumber.js";
 import { LogosEngine } from "../games/logos.js";
@@ -55,6 +58,7 @@ const DEFAULT_CAPITALS_SETTINGS: CapitalsSettings = { totalRounds: 10, answerDur
 const DEFAULT_LOGOS_SETTINGS: LogosSettings = { totalRounds: 10, answerDurationSeconds: 15 };
 const DEFAULT_SPEED_WORD_SETTINGS: SpeedWordSettings = { answerDurationSeconds: 12 };
 const DEFAULT_MAZE_SETTINGS: MazeSettings = { maxPlayers: 20, joinCommand: "!دخول", gridSize: 9, durationSeconds: 180 };
+const DEFAULT_DRAWING_SETTINGS: DrawingSettings = { roundSeconds: 60 };
 
 router.get(
   "/toggles",
@@ -378,6 +382,25 @@ router.post(
       return;
     }
 
+    if (gameType === "DRAWING") {
+      const roundSeconds = Number(settings?.roundSeconds ?? DEFAULT_DRAWING_SETTINGS.roundSeconds);
+      if (!Number.isInteger(roundSeconds) || roundSeconds < 10 || roundSeconds > 300) {
+        res.status(400).json({ error: "مدة الرسم لازم تكون بين 10 و 300 ثانية" });
+        return;
+      }
+
+      const config = await prisma.gameConfig.create({
+        data: {
+          userId: req.userId!,
+          gameType: "DRAWING",
+          name: typeof name === "string" && name.trim() ? name.trim() : "تحدي الرسم",
+          settings: { roundSeconds } satisfies DrawingSettings,
+        },
+      });
+      res.status(201).json({ config });
+      return;
+    }
+
     res.status(400).json({ error: "النوع ده لسه مش متاح" });
   }),
 );
@@ -400,7 +423,8 @@ router.get(
           gameType === "CAPITALS" ||
           gameType === "LOGOS" ||
           gameType === "SPEED_WORD" ||
-          gameType === "MAZE"
+          gameType === "MAZE" ||
+          gameType === "DRAWING"
             ? gameType
             : undefined,
       },
@@ -429,7 +453,8 @@ router.post(
       gameType !== "CAPITALS" &&
       gameType !== "LOGOS" &&
       gameType !== "SPEED_WORD" &&
-      gameType !== "MAZE"
+      gameType !== "MAZE" &&
+      gameType !== "DRAWING"
     ) {
       res.status(400).json({ error: "gameType غير مدعوم" });
       return;
@@ -457,7 +482,8 @@ router.post(
       | CapitalsSettings
       | LogosSettings
       | SpeedWordSettings
-      | MazeSettings;
+      | MazeSettings
+      | DrawingSettings;
     const defaultSettingsByType: Record<typeof gameType, AnyGameSettings> = {
       MUSICAL_CHAIRS: DEFAULT_MUSICAL_CHAIRS_SETTINGS,
       TRIVIA: DEFAULT_TRIVIA_SETTINGS,
@@ -469,6 +495,7 @@ router.post(
       LOGOS: DEFAULT_LOGOS_SETTINGS,
       SPEED_WORD: DEFAULT_SPEED_WORD_SETTINGS,
       MAZE: DEFAULT_MAZE_SETTINGS,
+      DRAWING: DEFAULT_DRAWING_SETTINGS,
     };
     let settings: AnyGameSettings = defaultSettingsByType[gameType]!;
     let gameConfigIdToUse: string | undefined;
@@ -549,7 +576,8 @@ router.post(
         | CapitalsState
         | LogosState
         | SpeedWordState
-        | MazeState,
+        | MazeState
+        | DrawingState,
     ) => {
       prisma.gameSession
         .update({ where: { id: gameSession.id }, data: { state: JSON.parse(JSON.stringify(state)) } })
@@ -561,7 +589,8 @@ router.post(
         state.gameType === "FLAGS" ||
         state.gameType === "CAPITALS" ||
         state.gameType === "LOGOS" ||
-        state.gameType === "SPEED_WORD"
+        state.gameType === "SPEED_WORD" ||
+        state.gameType === "DRAWING"
       ) {
         for (const p of state.players) {
           const delta = p.score - (previousScores.get(p.handle) ?? 0);
@@ -631,7 +660,9 @@ router.post(
                       ? new LogosEngine(gameSession.id, settings as LogosSettings, onChange)
                       : gameType === "SPEED_WORD"
                         ? new SpeedWordEngine(gameSession.id, settings as SpeedWordSettings, speedWordBackgroundPool, onChange)
-                        : new MazeEngine(gameSession.id, settings as MazeSettings, onChange);
+                        : gameType === "MAZE"
+                          ? new MazeEngine(gameSession.id, settings as MazeSettings, onChange)
+                          : new DrawingEngine(gameSession.id, settings as DrawingSettings, onChange);
 
     activeEngines.set(gameSession.id, engine);
     liveSessionToGameSession.set(liveSessionId, gameSession.id);
@@ -672,6 +703,33 @@ router.post(
       return;
     }
     activeEngines.get(req.params.id)?.stop();
+    res.json({ ok: true });
+  }),
+);
+
+// Drawing's word changes every round, mid-session — unlike Guess Number's secret (set once, at
+// config time via POST /configs), this needs its own in-session endpoint. The word never appears
+// in game:state until REVEALED (see DrawingEngine.submitWord); only the streamer, who is the only
+// one who can call this (ownership-checked below), ever knows it while DRAWING is live.
+router.post(
+  "/session/:id/drawing/word",
+  requireAuth,
+  asyncHandler(async (req: AuthedRequest, res) => {
+    if (!(await ownsGameSession(req.userId!, req.params.id))) {
+      res.status(404).json({ error: "مفيش لعبة شغالة بالـ id ده" });
+      return;
+    }
+    const engine = activeEngines.get(req.params.id);
+    if (!engine || !(engine instanceof DrawingEngine)) {
+      res.status(404).json({ error: "مفيش لعبة رسم شغالة بالـ id ده" });
+      return;
+    }
+    const word = typeof req.body?.word === "string" ? req.body.word : "";
+    const submitted = engine.submitWord(word);
+    if (!submitted) {
+      res.status(400).json({ error: "لازم تكتب كلمة (أقل من 40 حرف)، ومنفعش غير وانت في مرحلة الاختيار" });
+      return;
+    }
     res.json({ ok: true });
   }),
 );

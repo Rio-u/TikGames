@@ -7,6 +7,7 @@ import Admin from "./pages/Admin";
 import AuthCallback from "./pages/AuthCallback";
 import CapitalsControl from "./pages/CapitalsControl";
 import Dashboard from "./pages/Dashboard";
+import DrawingControl from "./pages/DrawingControl";
 import FlagsControl from "./pages/FlagsControl";
 import GuessNumberControl from "./pages/GuessNumberControl";
 import Landing from "./pages/Landing";
@@ -151,6 +152,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MazeControl />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/live/drawing"
+              element={
+                <ProtectedRoute>
+                  <DrawingControl />
                 </ProtectedRoute>
               }
             />

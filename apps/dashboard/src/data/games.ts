@@ -110,4 +110,13 @@ export const GAMES: GameDefinition[] = [
     imageUrl: "/games/maze.jpg",
     route: "/live/maze",
   },
+  {
+    id: "DRAWING",
+    nameAr: "تحدي الرسم",
+    descriptionAr: "الستريمر يختار كلمة سرية ويرسمها، والشات يحاول يخمنها بالكتابة — أول تخمين صح ياخد نقطة، والفائز صاحب أعلى نقط.",
+    emoji: "🎨",
+    gradient: "from-pink-500/35 via-rose-600/20 to-canvas-elevated",
+    imageUrl: "/games/drawing.jpg",
+    route: "/live/drawing",
+  },
 ];

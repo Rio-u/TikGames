@@ -77,6 +77,14 @@ function gameStatusText(state: GameState): string {
       return state.phase === "WAITING_FOR_PLAYERS"
         ? `بانتظار اللاعبين — ${state.players.length} / ${state.settings.maxPlayers} — أمر الانضمام: ${state.settings.joinCommand}`
         : "السباق شغال — اكتب 1 لـ 4 عشان تتحرك، !فخ عشان تحط فخ";
+    case "DRAWING":
+      return state.phase === "WAITING_TO_START"
+        ? "هيبدأ أول دور دلوقتي"
+        : state.phase === "PICKING"
+          ? "الستريمر بيختار كلمة يرسمها"
+          : state.phase === "DRAWING"
+            ? `دور ${state.round} — خمّن الرسمة في الشات`
+            : `دور ${state.round} — الكلمة: ${state.word}`;
   }
 }
 

@@ -10,7 +10,8 @@ export type GameType =
   | "CAPITALS"
   | "LOGOS"
   | "SPEED_WORD"
-  | "MAZE";
+  | "MAZE"
+  | "DRAWING";
 
 export interface LiveSession {
   id: string;
@@ -74,6 +75,10 @@ export interface MazeSettings {
   joinCommand: string;
   gridSize: number;
   durationSeconds: number;
+}
+
+export interface DrawingSettings {
+  roundSeconds: number;
 }
 
 export type GameConfig =
@@ -324,6 +329,26 @@ export interface MazeState {
   phaseEndsAt: string | null;
 }
 
+export interface DrawingPlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  score: number;
+}
+
+export interface DrawingState {
+  gameType: "DRAWING";
+  gameSessionId: string;
+  phase: "WAITING_TO_START" | "PICKING" | "DRAWING" | "REVEALED" | "FINISHED";
+  settings: DrawingSettings;
+  players: DrawingPlayer[];
+  round: number;
+  word: string | null;
+  lastWinner: DrawingPlayer | null;
+  winner: DrawingPlayer | null;
+  phaseEndsAt: string | null;
+}
+
 export type GameState =
   | MusicalChairsState
   | TriviaState
@@ -334,7 +359,8 @@ export type GameState =
   | CapitalsState
   | LogosState
   | SpeedWordState
-  | MazeState;
+  | MazeState
+  | DrawingState;
 
 export async function startLive(channelUsername: string) {
   const res = await authedFetch("/live/start", {
@@ -379,7 +405,9 @@ export async function createGameConfig(
     | FlagsSettings
     | CapitalsSettings
     | LogosSettings
-    | SpeedWordSettings,
+    | SpeedWordSettings
+    | MazeSettings
+    | DrawingSettings,
 ) {
   const res = await authedFetch("/games/configs", {
     method: "POST",
@@ -409,6 +437,15 @@ export async function beginGameSession(gameSessionId: string) {
 export async function stopGameSession(gameSessionId: string) {
   const res = await authedFetch(`/games/session/${gameSessionId}/stop`, { method: "POST" });
   return parseJsonOrThrow(res);
+}
+
+/** Drawing-only: submits the streamer's word for the round currently in PICKING. */
+export async function submitDrawingWord(gameSessionId: string, word: string) {
+  const res = await authedFetch(`/games/session/${gameSessionId}/drawing/word`, {
+    method: "POST",
+    body: JSON.stringify({ word }),
+  });
+  return parseJsonOrThrow(res) as Promise<{ ok: true }>;
 }
 
 export async function getGameSessionState(gameSessionId: string) {

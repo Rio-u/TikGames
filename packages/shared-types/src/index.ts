@@ -125,7 +125,8 @@ export type GameType =
   | "CAPITALS"
   | "LOGOS"
   | "SPEED_WORD"
-  | "MAZE";
+  | "MAZE"
+  | "DRAWING";
 
 export const GAME_TYPES: GameType[] = [
   "MUSICAL_CHAIRS",
@@ -138,6 +139,7 @@ export const GAME_TYPES: GameType[] = [
   "LOGOS",
   "SPEED_WORD",
   "MAZE",
+  "DRAWING",
 ];
 
 export interface MusicalChairsSettings {
@@ -525,6 +527,40 @@ export interface MazeState {
   phaseEndsAt: string | null;
 }
 
+// --- Drawing (تحدي الرسم) game engine --------------------------------------------------
+
+export interface DrawingSettings {
+  roundSeconds: number;
+}
+
+export type DrawingPhase = "WAITING_TO_START" | "PICKING" | "DRAWING" | "REVEALED" | "FINISHED";
+
+export interface DrawingPlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  score: number;
+}
+
+export interface DrawingState {
+  gameType: "DRAWING";
+  gameSessionId: string;
+  phase: DrawingPhase;
+  settings: DrawingSettings;
+  /** Everyone who has scored at least one point, ranked highest-first. */
+  players: DrawingPlayer[];
+  round: number;
+  /** The word the streamer is drawing this round — never set until REVEALED (correct guess or
+   *  timeout). Never appears in settings either: there's no per-namespace filtering anywhere in
+   *  this codebase, so a word visible to the streamer but hidden from viewers can't ride inside
+   *  the one game:state payload broadcast to both — it has to be absent until reveal, same
+   *  pattern as GuessNumberState.secret, just re-applied every round instead of once. */
+  word: string | null;
+  lastWinner: DrawingPlayer | null;
+  winner: DrawingPlayer | null;
+  phaseEndsAt: string | null;
+}
+
 // --- Dashboard / overlay socket contract ------------------------------------------
 
 export const LiveSocketEvents = {
@@ -532,4 +568,5 @@ export const LiveSocketEvents = {
   ChatComment: "chat:comment",
   ConnectorAlert: "connector:alert",
   RoomStats: "live:roomStats",
+  DrawStroke: "draw:stroke",
 } as const;

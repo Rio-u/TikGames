@@ -1,6 +1,7 @@
 import { InternalSocketEvents, type WatchStartCommand, type WatchStopCommand } from "@tikgames/shared-types";
 import type { Server, Socket } from "socket.io";
 import type { CapitalsEngine } from "../games/capitals.js";
+import type { DrawingEngine } from "../games/drawing.js";
 import type { FlagsEngine } from "../games/flags.js";
 import type { GuessNumberEngine } from "../games/guessNumber.js";
 import type { LogosEngine } from "../games/logos.js";
@@ -21,7 +22,8 @@ export type AnyGameEngine =
   | CapitalsEngine
   | LogosEngine
   | SpeedWordEngine
-  | MazeEngine;
+  | MazeEngine
+  | DrawingEngine;
 
 // In-memory, single-instance state. Fine at our current scale (matches the same pattern already
 // used for OAuth pendingStates/pendingExchanges in routes/auth.ts) — move to Redis before running

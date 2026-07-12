@@ -188,11 +188,23 @@ export function setupSocketServer(httpServer: HttpServer): Server {
       if (!session || session.userId !== socket.data.userId) return;
 
       socket.join(liveRoom(liveSessionId));
+      socket.data.liveSessionId = liveSessionId;
       const gameSessionId = liveSessionToGameSession.get(liveSessionId);
       if (gameSessionId) {
         const engine = activeEngines.get(gameSessionId);
         if (engine) socket.emit(LiveSocketEvents.GameState, engine.getState());
       }
+    });
+
+    // Drawing's canvas strokes bypass the game:state pipeline entirely (no engine, no Mongo
+    // write) — mouse-move-frequency updates would hammer the DB if routed through the normal
+    // onChange/persist path every other game mutation uses. A raw relay is all this needs:
+    // broadcastToLive already fans out to both /overlay and /dashboard rooms for any event name.
+    // Only the socket that actually joined this room may push strokes into it.
+    socket.on(LiveSocketEvents.DrawStroke, (payload: { liveSessionId?: string }) => {
+      const liveSessionId = socket.data.liveSessionId as string | undefined;
+      if (!liveSessionId || payload?.liveSessionId !== liveSessionId) return;
+      broadcastToLive(liveSessionId, LiveSocketEvents.DrawStroke, payload);
     });
   });
 
