@@ -10,7 +10,8 @@ import { WinnerCelebration } from "./WinnerCelebration";
 
 export type { ChatItem };
 
-const CANVAS_SIZE = 1000;
+const CANVAS_WIDTH = 1400;
+const CANVAS_HEIGHT = 900;
 type ToolKind = "freehand" | "line" | "rect" | "circle";
 interface Point {
   x: number;
@@ -31,10 +32,12 @@ export interface StrokeMessage {
   points?: Point[];
 }
 
-function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: number) {
-  const scale = canvasPx / CANVAS_SIZE;
+// The canvas's pixel buffer is always exactly CANVAS_WIDTH×CANVAS_HEIGHT (set via the width/height
+// attributes below), matching the wire-protocol's normalized coordinate space 1:1 — no separate
+// scale factor needed; the CSS display size is free to differ and the browser stretches the buffer.
+function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.strokeStyle = stroke.color;
-  ctx.lineWidth = Math.max(1, stroke.size * scale);
+  ctx.lineWidth = Math.max(1, stroke.size);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   const pts = stroke.points;
@@ -43,10 +46,8 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
   if (stroke.kind === "freehand") {
     ctx.beginPath();
     pts.forEach((p, i) => {
-      const x = p.x * scale;
-      const y = p.y * scale;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
   } else if (pts.length >= 2) {
@@ -54,20 +55,15 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
     const b = pts[pts.length - 1]!;
     if (stroke.kind === "line") {
       ctx.beginPath();
-      ctx.moveTo(a.x * scale, a.y * scale);
-      ctx.lineTo(b.x * scale, b.y * scale);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
       ctx.stroke();
     } else if (stroke.kind === "rect") {
-      ctx.strokeRect(
-        Math.min(a.x, b.x) * scale,
-        Math.min(a.y, b.y) * scale,
-        Math.abs(b.x - a.x) * scale,
-        Math.abs(b.y - a.y) * scale,
-      );
+      ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
     } else if (stroke.kind === "circle") {
-      const r = Math.hypot((b.x - a.x) * scale, (b.y - a.y) * scale);
+      const r = Math.hypot(b.x - a.x, b.y - a.y);
       ctx.beginPath();
-      ctx.arc(a.x * scale, a.y * scale, r, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -76,10 +72,9 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
 function redraw(canvas: HTMLCanvasElement, strokes: Map<string, Stroke>) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const size = canvas.width;
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, size, size);
-  for (const stroke of strokes.values()) drawStroke(ctx, stroke, size);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of strokes.values()) drawStroke(ctx, stroke);
 }
 
 /** Read-only — viewers never draw, this just replays whatever draw:stroke events arrive. */
@@ -100,9 +95,9 @@ function ReadOnlyCanvas({ strokes }: { strokes: Map<string, StrokeMessage> }) {
   return (
     <canvas
       ref={canvasRef}
-      width={CANVAS_SIZE}
-      height={CANVAS_SIZE}
-      className="aspect-square h-[min(50vh,480px)] w-[min(50vh,480px)] rounded-2xl border-2 border-glass-border shadow-glass"
+      width={CANVAS_WIDTH}
+      height={CANVAS_HEIGHT}
+      className="aspect-[14/9] w-[min(58vw,820px)] rounded-2xl border-2 border-glass-border shadow-glass"
     />
   );
 }
@@ -198,7 +193,7 @@ export function DrawingOverlay({
                 </div>
 
                 {state.phase === "PICKING" ? (
-                  <div className="flex h-[min(50vh,480px)] w-[min(50vh,480px)] flex-col items-center justify-center gap-3 rounded-2xl border border-glass-border bg-canvas-soft/70 text-center shadow-glass backdrop-blur-2xl">
+                  <div className="flex aspect-[14/9] w-[min(58vw,820px)] flex-col items-center justify-center gap-3 rounded-2xl border border-glass-border bg-canvas-soft/70 text-center shadow-glass backdrop-blur-2xl">
                     <p className="text-4xl">🎨</p>
                     <p className="text-ink-muted">الستريمر بيختار كلمة يرسمها...</p>
                   </div>

@@ -1,5 +1,17 @@
 import type { DrawingPlayer, DrawingState } from "@tikgames/shared-types";
-import { ArrowCounterClockwise, Circle as CircleIcon, Eraser, Minus, PaintBrush, Square, Trash, Trophy, Users } from "@phosphor-icons/react";
+import {
+  ArrowCounterClockwise,
+  Circle as CircleIcon,
+  Eraser,
+  Eye,
+  EyeSlash,
+  Minus,
+  PaintBrush,
+  Square,
+  Trash,
+  Trophy,
+  Users,
+} from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useCountdown } from "../lib/useCountdown";
@@ -10,7 +22,8 @@ import { WinnerCelebration } from "./WinnerCelebration";
 
 export type { ChatItem };
 
-const CANVAS_SIZE = 1000;
+const CANVAS_WIDTH = 1400;
+const CANVAS_HEIGHT = 900;
 type ToolKind = "freehand" | "line" | "rect" | "circle";
 interface Point {
   x: number;
@@ -38,10 +51,12 @@ const SIZES: { label: string; value: number }[] = [
   { label: "سميك", value: 32 },
 ];
 
-function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: number) {
-  const scale = canvasPx / CANVAS_SIZE;
+// The canvas's pixel buffer is always exactly CANVAS_WIDTH×CANVAS_HEIGHT (set via the width/height
+// attributes below), matching the wire-protocol's normalized coordinate space 1:1 — no separate
+// scale factor needed; the CSS display size is free to differ and the browser stretches the buffer.
+function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.strokeStyle = stroke.color;
-  ctx.lineWidth = Math.max(1, stroke.size * scale);
+  ctx.lineWidth = Math.max(1, stroke.size);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   const pts = stroke.points;
@@ -50,10 +65,8 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
   if (stroke.kind === "freehand") {
     ctx.beginPath();
     pts.forEach((p, i) => {
-      const x = p.x * scale;
-      const y = p.y * scale;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
   } else if (pts.length >= 2) {
@@ -61,20 +74,15 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
     const b = pts[pts.length - 1]!;
     if (stroke.kind === "line") {
       ctx.beginPath();
-      ctx.moveTo(a.x * scale, a.y * scale);
-      ctx.lineTo(b.x * scale, b.y * scale);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
       ctx.stroke();
     } else if (stroke.kind === "rect") {
-      ctx.strokeRect(
-        Math.min(a.x, b.x) * scale,
-        Math.min(a.y, b.y) * scale,
-        Math.abs(b.x - a.x) * scale,
-        Math.abs(b.y - a.y) * scale,
-      );
+      ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
     } else if (stroke.kind === "circle") {
-      const r = Math.hypot((b.x - a.x) * scale, (b.y - a.y) * scale);
+      const r = Math.hypot(b.x - a.x, b.y - a.y);
       ctx.beginPath();
-      ctx.arc(a.x * scale, a.y * scale, r, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -83,10 +91,9 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, canvasPx: num
 function redraw(canvas: HTMLCanvasElement, strokes: Map<string, Stroke>) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const size = canvas.width;
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, size, size);
-  for (const stroke of strokes.values()) drawStroke(ctx, stroke, size);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of strokes.values()) drawStroke(ctx, stroke);
 }
 
 /** The streamer's own canvas: pointer input renders locally at zero latency and is also emitted
@@ -107,9 +114,9 @@ function DrawingCanvas({ onStroke, disabled }: { onStroke: (msg: StrokeMessage) 
 
   function pointFromEvent(e: React.PointerEvent<HTMLCanvasElement>): Point {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * CANVAS_SIZE;
-    const y = ((e.clientY - rect.top) / rect.height) * CANVAS_SIZE;
-    return { x: Math.max(0, Math.min(CANVAS_SIZE, x)), y: Math.max(0, Math.min(CANVAS_SIZE, y)) };
+    const x = ((e.clientX - rect.left) / rect.width) * CANVAS_WIDTH;
+    const y = ((e.clientY - rect.top) / rect.height) * CANVAS_HEIGHT;
+    return { x: Math.max(0, Math.min(CANVAS_WIDTH, x)), y: Math.max(0, Math.min(CANVAS_HEIGHT, y)) };
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -243,13 +250,13 @@ function DrawingCanvas({ onStroke, disabled }: { onStroke: (msg: StrokeMessage) 
 
       <canvas
         ref={canvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        className={`aspect-square h-[min(60vh,560px)] w-[min(60vh,560px)] touch-none rounded-2xl border-2 border-glass-border shadow-glass ${
+        className={`aspect-[14/9] w-[min(64vw,980px)] touch-none rounded-2xl border-2 border-glass-border shadow-glass ${
           disabled ? "cursor-not-allowed opacity-60" : "cursor-crosshair"
         }`}
       />
@@ -263,6 +270,7 @@ function wordCacheKey(gameSessionId: string): string {
 
 function WordPicker({ gameSessionId, onSubmit }: { gameSessionId: string; onSubmit: (word: string) => void }) {
   const [word, setWord] = useState("");
+  const [reveal, setReveal] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -271,15 +279,29 @@ function WordPicker({ gameSessionId, onSubmit }: { gameSessionId: string; onSubm
     >
       <p className="text-5xl">🎨</p>
       <h3 className="text-xl font-bold">دورك ترسم! اختار كلمة</h3>
-      <p className="text-sm text-ink-muted">الكلمة دي محدش هيشوفها غيرك — الشات هيحاول يخمنها من رسمتك.</p>
-      <input
-        dir="rtl"
-        value={word}
-        onChange={(e) => setWord(e.target.value)}
-        maxLength={40}
-        placeholder="اكتب الكلمة هنا..."
-        className="w-full rounded-xl border border-glass-border bg-canvas-elevated/60 px-4 py-2.5 text-center text-sm text-ink outline-none focus:border-accent focus:shadow-glow-sm"
-      />
+      <p className="text-sm text-ink-muted">
+        الكلمة دي محدش هيشوفها غيرك — متبانش على شاشتك حتى، عشان لو حد شايف سكرينك بالغلط. الشات هيحاول يخمنها من رسمتك.
+      </p>
+      <div className="relative w-full">
+        <input
+          dir="rtl"
+          type={reveal ? "text" : "password"}
+          autoComplete="off"
+          value={word}
+          onChange={(e) => setWord(e.target.value)}
+          maxLength={40}
+          placeholder="اكتب الكلمة هنا..."
+          className="w-full rounded-xl border border-glass-border bg-canvas-elevated/60 px-4 py-2.5 pl-11 text-center text-sm text-ink outline-none focus:border-accent focus:shadow-glow-sm"
+        />
+        <button
+          type="button"
+          onClick={() => setReveal((v) => !v)}
+          aria-label={reveal ? "اخفي الكلمة" : "اظهر الكلمة"}
+          className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-white/10 hover:text-ink"
+        >
+          {reveal ? <EyeSlash size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
       <button
         type="button"
         disabled={!word.trim()}
@@ -354,10 +376,13 @@ export function DrawingGameView({
 }) {
   const secondsLeft = useCountdown(state.phase === "DRAWING" ? state.phaseEndsAt : null);
   const [cachedWord, setCachedWord] = useState<string | null>(null);
+  const [wordRevealed, setWordRevealed] = useState(false);
 
   useEffect(() => {
     if (state.phase === "DRAWING") {
       setCachedWord(localStorage.getItem(wordCacheKey(state.gameSessionId)));
+    } else {
+      setWordRevealed(false);
     }
   }, [state.phase, state.gameSessionId]);
 
@@ -390,9 +415,14 @@ export function DrawingGameView({
                     <span className="rounded-full bg-accent/15 px-3 py-1.5 text-lg font-extrabold text-accent">{secondsLeft}</span>
                   )}
                   {state.phase === "DRAWING" && cachedWord && (
-                    <span className="rounded-full bg-emerald-500/15 px-3 py-1.5 font-semibold text-emerald-300">
-                      الكلمة: {cachedWord}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setWordRevealed((v) => !v)}
+                      className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/25"
+                    >
+                      {wordRevealed ? <Eye size={14} /> : <EyeSlash size={14} />}
+                      {wordRevealed ? `الكلمة: ${cachedWord}` : "اضغط لإظهار الكلمة"}
+                    </button>
                   )}
                   {state.phase === "REVEALED" && state.word && (
                     <span className="rounded-full bg-emerald-500/15 px-3 py-1.5 font-semibold text-emerald-300">
