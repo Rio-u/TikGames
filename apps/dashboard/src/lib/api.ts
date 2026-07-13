@@ -4,6 +4,8 @@ export interface SubscriptionInfo {
   status: "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
   trialEndsAt: string;
   currentPeriodEnd: string | null;
+  trialGamesLimit: number;
+  trialGamesUsed: number;
 }
 
 export interface AuthUser {
@@ -39,6 +41,7 @@ export async function registerRequest(input: {
   password: string;
   displayName: string;
   username: string;
+  turnstileToken?: string | null;
 }): Promise<{ user: AuthUser } & AuthTokens> {
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
@@ -93,7 +96,25 @@ export async function exchangeOAuthCode(code: string): Promise<{ user: AuthUser 
   return parseJsonOrThrow(res);
 }
 
+export interface AuthMethods {
+  emailPassword: boolean;
+  tiktok: boolean;
+  discord: boolean;
+}
+
+/** Public — Login/Register pages call this to know which methods to show. A UI hint only; the
+ *  real enforcement lives server-side in each method's own route. */
+export async function getAuthMethods(): Promise<AuthMethods> {
+  const res = await fetch(`${API_URL}/auth/methods`);
+  return parseJsonOrThrow(res);
+}
+
 // --- Account management (all require an existing session) -------------------------
+
+export async function redeemCode(code: string): Promise<{ ok: true; gamesGranted: number; trialGamesLimit: number }> {
+  const res = await authedFetch("/auth/redeem-code", { method: "POST", body: JSON.stringify({ code }) });
+  return parseJsonOrThrow(res);
+}
 
 export async function changePasswordRequest(input: { currentPassword?: string; newPassword: string }): Promise<{ ok: true }> {
   const res = await authedFetch("/auth/password", { method: "POST", body: JSON.stringify(input) });

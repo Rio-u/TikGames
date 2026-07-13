@@ -472,6 +472,19 @@ router.post(
       return;
     }
 
+    // Real, server-side subscription enforcement — the only gate that actually exists for this.
+    // SUSPENDED always blocks; TRIAL blocks once trialGamesUsed reaches trialGamesLimit (bumped by
+    // admin grants and redemption codes, see POST /account/redeem-code); ACTIVE is unlimited.
+    const subscription = await prisma.subscription.findUnique({ where: { userId: req.userId! } });
+    if (subscription?.status === "SUSPENDED") {
+      res.status(403).json({ error: "حسابك موقوف مؤقتاً — تواصل مع الدعم" });
+      return;
+    }
+    if (subscription?.status === "TRIAL" && subscription.trialGamesUsed >= subscription.trialGamesLimit) {
+      res.status(403).json({ error: "خلصت تجربتك المجانية — اشترك عشان تكمل تشغيل الألعاب" });
+      return;
+    }
+
     type AnyGameSettings =
       | MusicalChairsSettings
       | TriviaSettings
@@ -555,6 +568,15 @@ router.post(
         startedAt: new Date(),
       },
     });
+
+    // Only burn a trial game once the session actually exists — a failed session-start above
+    // never reaches here, so it never costs the streamer a trial game.
+    if (subscription?.status === "TRIAL") {
+      await prisma.subscription.update({
+        where: { userId: req.userId! },
+        data: { trialGamesUsed: { increment: 1 } },
+      });
+    }
 
     // Leaderboard write-through state — fresh per game session (this closure is recreated on
     // every POST /session/start), so a mid-live restart can't double-count or leak a stale tally

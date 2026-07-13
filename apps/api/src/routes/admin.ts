@@ -269,6 +269,132 @@ router.post(
   }),
 );
 
+// --- Auth method toggles (registration-method kill switch) -------------------------
+
+const AUTH_METHODS = ["EMAIL_PASSWORD", "TIKTOK", "DISCORD"] as const;
+type AdminAuthMethod = (typeof AUTH_METHODS)[number];
+
+router.get(
+  "/auth-toggles",
+  asyncHandler(async (_req, res) => {
+    const rows = await prisma.authMethodToggle.findMany();
+    const enabledByMethod = new Map(rows.map((r) => [r.method, r.enabled]));
+    const toggles = AUTH_METHODS.map((method) => ({
+      method,
+      enabled: enabledByMethod.get(method) ?? true,
+    }));
+    res.json({ toggles });
+  }),
+);
+
+router.post(
+  "/auth-toggles/:method",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const method = req.params.method as AdminAuthMethod;
+    if (!AUTH_METHODS.includes(method)) {
+      res.status(400).json({ error: "طريقة التسجيل مش معروفة" });
+      return;
+    }
+    if (typeof req.body?.enabled !== "boolean") {
+      res.status(400).json({ error: "enabled لازم يكون true أو false" });
+      return;
+    }
+    const { enabled } = req.body;
+
+    const toggle = await prisma.authMethodToggle.upsert({
+      where: { method },
+      update: { enabled, updatedById: req.userId! },
+      create: { method, enabled, updatedById: req.userId! },
+    });
+    await logAdminAction(req.userId!, enabled ? "AUTH_METHOD_ENABLED" : "AUTH_METHOD_DISABLED", undefined, { method });
+    res.json({ toggle });
+  }),
+);
+
+// --- Platform settings (default trial games, singleton row) ------------------------
+
+router.get(
+  "/settings",
+  asyncHandler(async (_req, res) => {
+    const settings = await prisma.platformSettings.findUnique({ where: { key: "platform" } });
+    res.json({ defaultTrialGames: settings?.defaultTrialGames ?? 3 });
+  }),
+);
+
+router.put(
+  "/settings",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const defaultTrialGames = Number(req.body?.defaultTrialGames);
+    if (!Number.isInteger(defaultTrialGames) || defaultTrialGames < 0 || defaultTrialGames > 100) {
+      res.status(400).json({ error: "عدد ألعاب التجربة لازم يكون رقم صحيح من 0 لـ 100" });
+      return;
+    }
+    const settings = await prisma.platformSettings.upsert({
+      where: { key: "platform" },
+      update: { defaultTrialGames, updatedById: req.userId! },
+      create: { key: "platform", defaultTrialGames, updatedById: req.userId! },
+    });
+    await logAdminAction(req.userId!, "PLATFORM_SETTINGS_UPDATED", undefined, { defaultTrialGames });
+    res.json({ defaultTrialGames: settings.defaultTrialGames });
+  }),
+);
+
+// --- Redemption codes (single-use, single-account bonus games) ---------------------
+
+function generateRedemptionCode(): string {
+  // Uppercase alphanumeric minus ambiguous 0/O/1/I — meant to be read aloud / typed by hand.
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return code;
+}
+
+router.get(
+  "/redemption-codes",
+  asyncHandler(async (_req, res) => {
+    const codes = await prisma.redemptionCode.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { redeemedBy: { select: { displayName: true, username: true } } },
+    });
+    res.json({ codes });
+  }),
+);
+
+router.post(
+  "/redemption-codes",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const gamesGranted = Number(req.body?.gamesGranted);
+    if (!Number.isInteger(gamesGranted) || gamesGranted <= 0 || gamesGranted > 1000) {
+      res.status(400).json({ error: "عدد الألعاب لازم يكون رقم صحيح من 1 لـ 1000" });
+      return;
+    }
+
+    let code = "";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateRedemptionCode();
+      const existing = await prisma.redemptionCode.findUnique({ where: { code: candidate } });
+      if (!existing) {
+        code = candidate;
+        break;
+      }
+    }
+    if (!code) {
+      res.status(500).json({ error: "حصل خطأ في توليد الكود، جرب تاني" });
+      return;
+    }
+
+    // redeemedById/redeemedAt must be written as explicit null, not left absent — Prisma's MongoDB
+    // connector does not treat an absent optional field as equivalent to an explicit null when
+    // filtering (POST /auth/redeem-code's claim guard is `where: { redeemedById: null }`), so an
+    // absent field there would make the code permanently unredeemable.
+    const redemptionCode = await prisma.redemptionCode.create({
+      data: { code, gamesGranted, createdById: req.userId!, redeemedById: null, redeemedAt: null },
+    });
+    await logAdminAction(req.userId!, "REDEMPTION_CODE_CREATED", undefined, { code, gamesGranted });
+    res.status(201).json({ code: redemptionCode });
+  }),
+);
+
 // --- Dashboard homepage (hero title + up to 3 spotlighted games) ------------------
 
 router.get(
@@ -463,7 +589,9 @@ router.get(
         displayName: true,
         role: true,
         createdAt: true,
-        subscription: { select: { status: true, trialEndsAt: true, currentPeriodEnd: true } },
+        subscription: {
+          select: { status: true, trialEndsAt: true, currentPeriodEnd: true, trialGamesLimit: true, trialGamesUsed: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -508,6 +636,30 @@ router.post(
       return;
     }
     await logAdminAction(req.userId!, "SUBSCRIPTION_SUSPENDED", targetUserId);
+    res.json({ subscription });
+  }),
+);
+
+// Support-case escape hatch, same field redemption codes use (see POST /account/redeem-code) —
+// both just add to trialGamesLimit, so there's one enforcement path (POST /games/session/start),
+// not two parallel limits to keep in sync.
+router.post(
+  "/users/:userId/subscription/grant-games",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const targetUserId = req.params.userId;
+    const countRaw = Number(req.body?.count);
+    if (!Number.isInteger(countRaw) || countRaw <= 0 || countRaw > 1000) {
+      res.status(400).json({ error: "العدد لازم يكون رقم صحيح من 1 لـ 1000" });
+      return;
+    }
+    const subscription = await prisma.subscription
+      .update({ where: { userId: targetUserId }, data: { trialGamesLimit: { increment: countRaw } } })
+      .catch(() => null);
+    if (!subscription) {
+      res.status(404).json({ error: "الاشتراك مش موجود" });
+      return;
+    }
+    await logAdminAction(req.userId!, "SUBSCRIPTION_GAMES_GRANTED", targetUserId, { count: countRaw });
     res.json({ subscription });
   }),
 );

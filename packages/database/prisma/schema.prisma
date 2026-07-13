@@ -43,6 +43,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum AuthMethod {
+  EMAIL_PASSWORD
+  TIKTOK
+  DISCORD
+}
+
 enum LiveSourcePlatform {
   TIKTOK
   KICK
@@ -113,6 +119,8 @@ model User {
   uploadedMusicTracks  MusicalChairsTrack[]    @relation("MusicTrackUploader")
   uploadedSpeedWordImages SpeedWordBackgroundImage[] @relation("SpeedWordImageUploader")
   viewerRankings       ViewerRanking[]
+  createdRedemptionCodes  RedemptionCode[]        @relation("RedemptionCodeCreator")
+  redeemedRedemptionCodes RedemptionCode[]        @relation("RedemptionCodeRedeemer")
 }
 
 model RefreshToken {
@@ -168,6 +176,13 @@ model Subscription {
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   status           SubscriptionStatus @default(TRIAL)
   trialEndsAt      DateTime
+  // Usage-based trial (replaces trialEndsAt as the actual enforcement mechanism — trialEndsAt
+  // stays for historical display only). trialGamesLimit is snapshotted from PlatformSettings at
+  // signup, then only ever increased afterward (admin grants, redemption codes) — never derived
+  // live from the platform default, so a later admin change doesn't retroactively affect someone
+  // who already registered.
+  trialGamesLimit  Int                @default(3)
+  trialGamesUsed   Int                @default(0)
   currentPeriodEnd DateTime?
   activatedById    String?            @db.ObjectId
   activatedBy      User?              @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id])
@@ -349,6 +364,44 @@ model HomepageSettings {
   featuredGameTypes GameType[]
   updatedById       String?    @db.ObjectId
   updatedAt         DateTime   @updatedAt
+}
+
+// Registration-method kill switch, admin-controlled — same fail-open precedent as GameToggle (a
+// missing row means enabled). Only gates NEW account creation, never an existing user logging back
+// in via a method that's since been disabled — see POST /register, GET /tiktok|discord/start, and
+// the new-account branch of both OAuth callbacks in apps/api/src/routes/auth.ts.
+model AuthMethodToggle {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  method      AuthMethod @unique
+  enabled     Boolean    @default(true)
+  updatedById String?    @db.ObjectId
+  updatedAt   DateTime   @updatedAt
+}
+
+// Platform-wide singleton (same key-based pattern as HomepageSettings). defaultTrialGames is
+// snapshotted onto Subscription.trialGamesLimit at signup — changing it here only affects accounts
+// registered afterward.
+model PlatformSettings {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  key               String   @unique @default("platform")
+  defaultTrialGames Int      @default(3)
+  updatedById       String?  @db.ObjectId
+  updatedAt         DateTime @updatedAt
+}
+
+// Admin-generated, single-use, single-account bonus-games code. Redemption is a single atomic
+// updateMany guarded on redeemedById: null (see POST /account/redeem-code) — never read-then-write,
+// so two simultaneous redemption attempts on the same code can't both succeed.
+model RedemptionCode {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  code         String    @unique
+  gamesGranted Int
+  createdById  String    @db.ObjectId
+  createdBy    User      @relation("RedemptionCodeCreator", fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+  redeemedById String?   @db.ObjectId
+  redeemedBy   User?     @relation("RedemptionCodeRedeemer", fields: [redeemedById], references: [id])
+  redeemedAt   DateTime?
 }
 
 // Permanent per-streamer viewer leaderboard: how many points a given TikTok handle has earned

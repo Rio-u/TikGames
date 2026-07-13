@@ -18,8 +18,14 @@ import {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string, username: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (
+    email: string,
+    password: string,
+    displayName: string,
+    username: string,
+    turnstileToken?: string | null,
+  ) => Promise<void>;
   loginWithTokens: (data: { user: AuthUser } & AuthTokens) => void;
   logout: () => void;
   /** Re-fetches /auth/me and updates the in-memory user — call after anything that changes the
@@ -72,10 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function persistSession(data: { user: AuthUser } & AuthTokens) {
+  function persistSession(data: { user: AuthUser } & AuthTokens): AuthUser {
     localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
     setUser(data.user);
+    return data.user;
   }
 
   function clearSession() {
@@ -129,12 +136,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function login(email: string, password: string) {
-    persistSession(await loginRequest({ email, password }));
+  async function login(email: string, password: string): Promise<AuthUser> {
+    return persistSession(await loginRequest({ email, password }));
   }
 
-  async function register(email: string, password: string, displayName: string, username: string) {
-    persistSession(await registerRequest({ email, password, displayName, username }));
+  async function register(
+    email: string,
+    password: string,
+    displayName: string,
+    username: string,
+    turnstileToken?: string | null,
+  ) {
+    persistSession(await registerRequest({ email, password, displayName, username, turnstileToken }));
   }
 
   function loginWithTokens(data: { user: AuthUser } & AuthTokens) {

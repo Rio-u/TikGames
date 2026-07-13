@@ -7,38 +7,47 @@ import {
   ClipboardText,
   GameController,
   Image,
+  Key,
   MusicNotes,
   ShieldCheck,
   Star,
+  Ticket,
   ToggleLeft,
   Trash,
   UserPlus,
   Users,
 } from "@phosphor-icons/react";
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
   adminActivateSubscription,
   adminClearGameContentImage,
+  adminCreateRedemptionCode,
   adminDeleteMusicTrack,
   adminDeleteSpeedWordImage,
   adminDeleteTriviaImage,
   adminGetAnalytics,
   adminGetHomepageSettings,
+  adminGetPlatformSettings,
+  adminGrantBonusGames,
   adminListAlerts,
+  adminListAuthToggles,
   adminListGameContent,
   adminListGameToggles,
   adminListLogs,
   adminListMusicTracks,
+  adminListRedemptionCodes,
   adminListSpeedWordImages,
   adminListTriviaImages,
   adminListUsers,
   adminResolveAlert,
+  adminSetAuthToggle,
   adminSetGameToggle,
   adminSuspendSubscription,
   adminUpdateGameContent,
   adminUpdateHomepageSettings,
+  adminUpdatePlatformSettings,
   adminUploadGameContentImage,
   adminUploadMusicTracks,
   adminUploadSpeedWordImages,
@@ -47,7 +56,9 @@ import {
   type AdminAnalytics,
   type AdminGameContentEntry,
   type AdminLogEntry,
+  type AdminRedemptionCode,
   type AdminUser,
+  type AuthMethodToggle,
   type GameToggle,
   type MusicTrack,
 } from "../lib/adminApi";
@@ -59,15 +70,22 @@ import { Logo } from "../components/Logo";
 import { Reveal } from "../components/Reveal";
 import { GAMES, type GameDefinition } from "../data/games";
 
-type Tab = "games" | "analytics" | "users" | "alerts" | "logs";
+type Tab = "games" | "auth" | "analytics" | "users" | "alerts" | "logs";
 
 const TABS: { id: Tab; label: string; icon: typeof Image }[] = [
   { id: "games", label: "محتوى الألعاب", icon: Image },
+  { id: "auth", label: "الدخول والاشتراك", icon: Key },
   { id: "analytics", label: "التحليلات", icon: ChartLineUp },
   { id: "users", label: "المستخدمين والاشتراكات", icon: Users },
   { id: "alerts", label: "التنبيهات", icon: Bell },
   { id: "logs", label: "سجل النشاط", icon: ClipboardText },
 ];
+
+const AUTH_METHOD_LABELS: Record<string, string> = {
+  EMAIL_PASSWORD: "البريد الإلكتروني وكلمة السر",
+  TIKTOK: "تيك توك",
+  DISCORD: "ديسكورد",
+};
 
 const GAME_LABELS: Record<string, string> = Object.fromEntries(GAMES.map((g) => [g.id, g.nameAr]));
 
@@ -266,6 +284,257 @@ function GameTogglesCard() {
               </div>
             );
           })}
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+function AuthMethodTogglesCard() {
+  const [toggles, setToggles] = useState<AuthMethodToggle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyMethod, setBusyMethod] = useState<string | null>(null);
+
+  function refresh() {
+    adminListAuthToggles()
+      .then((data) => setToggles(data.toggles))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(refresh, []);
+
+  async function toggle(method: string, next: boolean) {
+    setBusyMethod(method);
+    try {
+      await adminSetAuthToggle(method, next);
+      setToggles((prev) => prev.map((t) => (t.method === method ? { ...t, enabled: next } : t)));
+    } finally {
+      setBusyMethod(null);
+    }
+  }
+
+  const enabledByMethod = new Map(toggles.map((t) => [t.method, t.enabled]));
+  const methods: AuthMethodToggle["method"][] = ["EMAIL_PASSWORD", "TIKTOK", "DISCORD"];
+
+  return (
+    <GlassCard hoverLift={false} className="p-6 sm:p-8">
+      <div className="mb-2 flex items-center gap-2">
+        <Key size={20} className="text-accent" weight="fill" />
+        <h2 className="font-semibold">طرق تسجيل الدخول</h2>
+      </div>
+      <p className="mb-4 text-sm text-ink-muted">
+        طريقة موقوفة هنا مبيقدرش حد يسجل حساب جديد بيها — أي حساب اتسجل بيها قبل كده يقدر يدخل عادي زي ما هو.
+      </p>
+
+      {loading ? (
+        <p className="text-sm text-ink-muted">جاري التحميل...</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {methods.map((method) => {
+            const enabled = enabledByMethod.get(method) ?? true;
+            return (
+              <div key={method} className="flex items-center gap-3 rounded-xl border border-glass-border bg-canvas-elevated/40 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{AUTH_METHOD_LABELS[method]}</p>
+                  <p className={`text-xs ${enabled ? "text-emerald-400" : "text-amber-400"}`}>
+                    {enabled ? "متاحة للتسجيل" : "متوقفة مؤقتاً"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggle(method, !enabled)}
+                  disabled={busyMethod === method}
+                  aria-pressed={enabled}
+                  aria-label={`${enabled ? "أوقف" : "فعّل"} ${AUTH_METHOD_LABELS[method]}`}
+                  className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:opacity-50 ${
+                    enabled ? "justify-end bg-emerald-500" : "justify-start bg-glass-strong"
+                  }`}
+                >
+                  <motion.span
+                    layout
+                    transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                    className="h-5 w-5 rounded-full bg-white shadow"
+                  />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+function PlatformSettingsCard() {
+  const [defaultTrialGames, setDefaultTrialGames] = useState(3);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminGetPlatformSettings()
+      .then((data) => setDefaultTrialGames(data.defaultTrialGames))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const data = await adminUpdatePlatformSettings(defaultTrialGames);
+      setDefaultTrialGames(data.defaultTrialGames);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "حصل خطأ في الحفظ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <GlassCard hoverLift={false} className="p-6 sm:p-8">
+      <div className="mb-2 flex items-center gap-2">
+        <ShieldCheck size={20} className="text-accent" weight="fill" />
+        <h2 className="font-semibold">التجربة المجانية</h2>
+      </div>
+      <p className="mb-4 text-sm text-ink-muted">
+        عدد الألعاب المجانية اللي بتتديله لأي حساب جديد قبل ما يُطلب منه الاشتراك. التغيير هنا بيطبق على الحسابات الجديدة
+        بس — مش بيأثر على حسابات مسجلة بالفعل.
+      </p>
+
+      {loading ? (
+        <p className="text-sm text-ink-muted">جاري التحميل...</p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-40">
+            <Input
+              label="عدد الألعاب"
+              type="number"
+              min={1}
+              max={1000}
+              value={defaultTrialGames}
+              onChange={(e) => {
+                setDefaultTrialGames(Number(e.target.value));
+                setSaved(false);
+              }}
+            />
+          </div>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "جاري الحفظ..." : "حفظ"}
+          </Button>
+          {saved && <span className="text-sm text-emerald-400">اتحفظ ✓</span>}
+          {error && <span className="text-sm text-red-300">{error}</span>}
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+function RedemptionCodesCard() {
+  const [codes, setCodes] = useState<AdminRedemptionCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [gamesGranted, setGamesGranted] = useState(5);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastGenerated, setLastGenerated] = useState<string | null>(null);
+
+  function refresh() {
+    adminListRedemptionCodes()
+      .then((data) => setCodes(data.codes))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(refresh, []);
+
+  async function handleGenerate(e: FormEvent) {
+    e.preventDefault();
+    setGenerating(true);
+    setError(null);
+    setLastGenerated(null);
+    try {
+      const { code } = await adminCreateRedemptionCode(gamesGranted);
+      setCodes((prev) => [code, ...prev]);
+      setLastGenerated(code.code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "حصل خطأ في إنشاء الكود");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <GlassCard hoverLift={false} className="p-6 sm:p-8">
+      <div className="mb-2 flex items-center gap-2">
+        <Ticket size={20} className="text-accent" weight="fill" />
+        <h2 className="font-semibold">أكواد تفعيل الألعاب</h2>
+      </div>
+      <p className="mb-4 text-sm text-ink-muted">
+        كل كود بيتستخدم مرة واحدة بس، لحساب واحد بس، وبيضيف عدد الألعاب المحدد لتجربة الحساب اللي هيفعّله من صفحة "حسابي".
+      </p>
+
+      <form onSubmit={handleGenerate} className="mb-5 flex flex-wrap items-end gap-3">
+        <div className="w-40">
+          <Input
+            label="عدد الألعاب الممنوحة"
+            type="number"
+            min={1}
+            max={1000}
+            value={gamesGranted}
+            onChange={(e) => setGamesGranted(Number(e.target.value))}
+          />
+        </div>
+        <Button type="submit" disabled={generating}>
+          {generating ? "جاري الإنشاء..." : "أنشئ كود جديد"}
+        </Button>
+      </form>
+      {lastGenerated && (
+        <p className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300" dir="ltr">
+          الكود الجديد: <span className="font-mono font-bold">{lastGenerated}</span>
+        </p>
+      )}
+      {error && <p className="mb-4 text-sm text-red-300">{error}</p>}
+
+      {loading ? (
+        <p className="text-sm text-ink-muted">جاري التحميل...</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-right text-sm">
+            <thead>
+              <tr className="border-b border-glass-border text-xs text-ink-muted">
+                <th className="py-2 pl-3 font-medium" dir="ltr">
+                  الكود
+                </th>
+                <th className="py-2 pl-3 font-medium">الألعاب</th>
+                <th className="py-2 pl-3 font-medium">الحالة</th>
+                <th className="py-2 font-medium">اتفعّل بواسطة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {codes.map((c) => (
+                <tr key={c.id} className="border-b border-glass-border/60">
+                  <td className="py-2.5 pl-3 font-mono" dir="ltr">
+                    {c.code}
+                  </td>
+                  <td className="py-2.5 pl-3">{c.gamesGranted}</td>
+                  <td className="py-2.5 pl-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        c.redeemedAt ? "bg-glass text-ink-muted" : "bg-emerald-500/15 text-emerald-400"
+                      }`}
+                    >
+                      {c.redeemedAt ? "اتفعّل" : "متاح"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-ink-muted">
+                    {c.redeemedBy ? <bdi>{c.redeemedBy.displayName}</bdi> : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {codes.length === 0 && <p className="mt-3 text-sm text-ink-muted">لسه مفيش أكواد اتعملت.</p>}
         </div>
       )}
     </GlassCard>
@@ -737,11 +1006,22 @@ function GamesTab() {
   );
 }
 
+function AuthTab() {
+  return (
+    <div className="space-y-6">
+      <AuthMethodTogglesCard />
+      <PlatformSettingsCard />
+      <RedemptionCodesCard />
+    </div>
+  );
+}
+
 function UsersTab() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [grantAmounts, setGrantAmounts] = useState<Record<string, number>>({});
 
   function refresh() {
     adminListUsers()
@@ -768,6 +1048,20 @@ function UsersTab() {
     setBusyId(userId);
     try {
       await adminSuspendSubscription(userId);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "حصل خطأ");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function grantGames(userId: string) {
+    const count = grantAmounts[userId] ?? 5;
+    if (!Number.isInteger(count) || count <= 0) return;
+    setBusyId(userId);
+    try {
+      await adminGrantBonusGames(userId, count);
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "حصل خطأ");
@@ -831,9 +1125,14 @@ function UsersTab() {
                     >
                       {u.subscription ? SUB_LABELS[u.subscription.status] : "—"}
                     </span>
+                    {u.subscription?.status === "TRIAL" && (
+                      <span className="mr-1.5 text-xs text-ink-muted">
+                        ({u.subscription.trialGamesUsed}/{u.subscription.trialGamesLimit})
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5">
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {u.subscription?.status !== "ACTIVE" && (
                         <Button size="md" magnetic={false} disabled={busyId === u.id} onClick={() => activate(u.id)} className="!px-3 !py-1 !text-xs">
                           فعّل
@@ -844,6 +1143,24 @@ function UsersTab() {
                           علّق
                         </Button>
                       )}
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={grantAmounts[u.id] ?? 5}
+                        onChange={(e) => setGrantAmounts((prev) => ({ ...prev, [u.id]: Number(e.target.value) }))}
+                        className="w-14 rounded-lg border border-glass-border bg-canvas-elevated/60 px-1.5 py-1 text-center text-xs outline-none focus:border-accent"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        magnetic={false}
+                        disabled={busyId === u.id}
+                        onClick={() => grantGames(u.id)}
+                        className="!px-3 !py-1 !text-xs"
+                      >
+                        +ألعاب
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -1134,6 +1451,7 @@ export default function Admin() {
         </div>
 
         {tab === "games" && <GamesTab />}
+        {tab === "auth" && <AuthTab />}
         {tab === "analytics" && <AnalyticsTab />}
         {tab === "users" && <UsersTab />}
         {tab === "alerts" && <AlertsTab />}

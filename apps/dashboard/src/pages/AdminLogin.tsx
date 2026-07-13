@@ -1,7 +1,7 @@
-import { SignIn } from "@phosphor-icons/react";
-import { type FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { DiscordIcon, TiktokIcon } from "../components/BrandIcons";
+import { ShieldCheck } from "@phosphor-icons/react";
+import { type FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { DiscordIcon } from "../components/BrandIcons";
 import { Button, ButtonAnchor } from "../components/Button";
 import { GlassCard } from "../components/GlassCard";
 import { HeroGlowArc } from "../components/GlowBackground";
@@ -9,33 +9,25 @@ import { Input } from "../components/Input";
 import { Logo } from "../components/Logo";
 import { OAuthDivider } from "../components/OAuthDivider";
 import { Spinner } from "../components/Spinner";
-import { discordAuthUrl, getAuthMethods, tiktokAuthUrl, type AuthMethods } from "../lib/api";
+import { discordAuthUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const OAUTH_ERROR_MESSAGES: Record<string, string> = {
-  tiktok_auth_failed: "الدخول بحساب TikTok فشل، جرب تاني أو استخدم الإيميل",
-  discord_auth_failed: "الدخول بحساب Discord فشل، جرب تاني أو استخدم الإيميل",
-  method_disabled: "طريقة الدخول دي متوقفة مؤقتاً",
-};
 
-export default function Login() {
+/**
+ * A separate, unlinked-from-anywhere login entry point for the admin panel — deliberately NOT
+ * gated by AuthMethodToggle (those exist to stop public signup spam, not to lock an admin out of
+ * their own recovery path) and not discoverable from the public site, same obfuscated-URL
+ * convention as /d7admind7 itself. Login only, no registration.
+ */
+export default function AdminLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const oauthError = OAUTH_ERROR_MESSAGES[searchParams.get("error") ?? ""];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [methods, setMethods] = useState<AuthMethods>({ emailPassword: true, tiktok: true, discord: true });
-
-  useEffect(() => {
-    getAuthMethods()
-      .then(setMethods)
-      .catch(() => {});
-  }, []);
 
   function validate(): boolean {
     const errors: Record<string, string> = {};
@@ -51,8 +43,8 @@ export default function Login() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await login(email, password);
-      navigate("/dashboard");
+      const user = await login(email, password);
+      navigate(user.role === "ADMIN" ? "/d7admind7" : "/dashboard");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "حصل خطأ غير متوقع، حاول تاني");
     } finally {
@@ -64,43 +56,23 @@ export default function Login() {
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-16">
       <HeroGlowArc />
       <div className="w-full max-w-sm">
-        <Link to="/" className="mb-8 flex items-center justify-center">
+        <div className="mb-8 flex items-center justify-center gap-2">
           <Logo size="lg" />
-        </Link>
+        </div>
 
         <GlassCard hoverLift={false} className="p-7">
-          <h1 className="mb-1 text-center text-xl font-bold">تسجيل الدخول</h1>
-          <p className="mb-6 text-center text-sm text-ink-muted">أهلاً بيك تاني في TikGames</p>
+          <div className="mb-1 flex items-center justify-center gap-2">
+            <ShieldCheck size={20} className="text-accent" weight="fill" />
+            <h1 className="text-xl font-bold">دخول الإدارة</h1>
+          </div>
+          <p className="mb-6 text-center text-sm text-ink-muted">للأدمن بس</p>
 
-          {oauthError && (
-            <p
-              role="alert"
-              className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300"
-            >
-              {oauthError}
-            </p>
-          )}
+          <ButtonAnchor href={discordAuthUrl()} variant="secondary" size="lg" magnetic={false} className="w-full">
+            <DiscordIcon size={18} />
+            الدخول بحساب Discord
+          </ButtonAnchor>
 
-          {(methods.tiktok || methods.discord) && (
-            <>
-              <div className="space-y-2.5">
-                {methods.tiktok && (
-                  <ButtonAnchor href={tiktokAuthUrl()} variant="secondary" size="lg" magnetic={false} className="w-full">
-                    <TiktokIcon size={18} />
-                    الدخول بحساب TikTok
-                  </ButtonAnchor>
-                )}
-                {methods.discord && (
-                  <ButtonAnchor href={discordAuthUrl()} variant="secondary" size="lg" magnetic={false} className="w-full">
-                    <DiscordIcon size={18} />
-                    الدخول بحساب Discord
-                  </ButtonAnchor>
-                )}
-              </div>
-
-              <OAuthDivider />
-            </>
-          )}
+          <OAuthDivider />
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
@@ -137,18 +109,9 @@ export default function Login() {
                   <Spinner /> جاري الدخول...
                 </>
               ) : (
-                <>
-                  <SignIn size={18} weight="bold" /> دخول
-                </>
+                "دخول"
               )}
             </Button>
-
-            <p className="text-center text-sm text-ink-muted">
-              مفيش حساب؟{" "}
-              <Link to="/register" className="text-accent hover:underline">
-                سجّل واحد جديد
-              </Link>
-            </p>
           </form>
         </GlassCard>
       </div>

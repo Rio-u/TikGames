@@ -32,6 +32,8 @@ export interface AdminUser {
     status: "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
     trialEndsAt: string;
     currentPeriodEnd: string | null;
+    trialGamesLimit: number;
+    trialGamesUsed: number;
   } | null;
 }
 
@@ -182,6 +184,73 @@ export async function adminSetGameToggle(gameType: string, enabled: boolean) {
     body: JSON.stringify({ enabled }),
   });
   return parseJsonOrThrow(res) as Promise<{ toggle: GameToggle }>;
+}
+
+// --- Auth method toggles (registration-method kill switch) ----------------------------
+
+export interface AuthMethodToggle {
+  method: "EMAIL_PASSWORD" | "TIKTOK" | "DISCORD";
+  enabled: boolean;
+}
+
+export async function adminListAuthToggles() {
+  const res = await authedFetch("/admin/auth-toggles");
+  return parseJsonOrThrow(res) as Promise<{ toggles: AuthMethodToggle[] }>;
+}
+
+export async function adminSetAuthToggle(method: string, enabled: boolean) {
+  const res = await authedFetch(`/admin/auth-toggles/${method}`, {
+    method: "POST",
+    body: JSON.stringify({ enabled }),
+  });
+  return parseJsonOrThrow(res) as Promise<{ toggle: AuthMethodToggle }>;
+}
+
+// --- Platform settings (default trial games) -------------------------------------------
+
+export async function adminGetPlatformSettings() {
+  const res = await authedFetch("/admin/settings");
+  return parseJsonOrThrow(res) as Promise<{ defaultTrialGames: number }>;
+}
+
+export async function adminUpdatePlatformSettings(defaultTrialGames: number) {
+  const res = await authedFetch("/admin/settings", {
+    method: "PUT",
+    body: JSON.stringify({ defaultTrialGames }),
+  });
+  return parseJsonOrThrow(res) as Promise<{ defaultTrialGames: number }>;
+}
+
+// --- Redemption codes (single-use, single-account bonus games) -------------------------
+
+export interface AdminRedemptionCode {
+  id: string;
+  code: string;
+  gamesGranted: number;
+  createdAt: string;
+  redeemedAt: string | null;
+  redeemedBy: { displayName: string; username: string } | null;
+}
+
+export async function adminListRedemptionCodes() {
+  const res = await authedFetch("/admin/redemption-codes");
+  return parseJsonOrThrow(res) as Promise<{ codes: AdminRedemptionCode[] }>;
+}
+
+export async function adminCreateRedemptionCode(gamesGranted: number) {
+  const res = await authedFetch("/admin/redemption-codes", {
+    method: "POST",
+    body: JSON.stringify({ gamesGranted }),
+  });
+  return parseJsonOrThrow(res) as Promise<{ code: AdminRedemptionCode }>;
+}
+
+export async function adminGrantBonusGames(userId: string, count: number) {
+  const res = await authedFetch(`/admin/users/${userId}/subscription/grant-games`, {
+    method: "POST",
+    body: JSON.stringify({ count }),
+  });
+  return parseJsonOrThrow(res);
 }
 
 // --- Dashboard homepage (hero title + up to 3 spotlighted games) ----------------------

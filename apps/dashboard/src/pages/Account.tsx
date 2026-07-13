@@ -9,10 +9,8 @@ import { GlassCard } from "../components/GlassCard";
 import { Input } from "../components/Input";
 import { Logo } from "../components/Logo";
 import { Reveal } from "../components/Reveal";
-import { changePasswordRequest, startDiscordLink, startTikTokLink, unlinkDiscord, unlinkTikTok } from "../lib/api";
+import { changePasswordRequest, redeemCode, startDiscordLink, startTikTokLink, unlinkDiscord, unlinkTikTok } from "../lib/api";
 import { useAuth } from "../lib/auth";
-
-const TRIAL_DAYS = 3;
 
 function subscriptionLabel(status: string): string {
   switch (status) {
@@ -82,6 +80,11 @@ export default function Account() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const [redeemCodeInput, setRedeemCodeInput] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     const linked = searchParams.get("linked");
     const linkError = searchParams.get("link_error");
@@ -106,10 +109,8 @@ export default function Account() {
   if (!user) return null;
 
   const sub = user.subscription;
-  const trialDaysLeft = sub
-    ? Math.max(0, Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : 0;
-  const trialProgress = Math.min(100, Math.max(0, ((TRIAL_DAYS - trialDaysLeft) / TRIAL_DAYS) * 100));
+  const trialGamesLeft = sub ? Math.max(0, sub.trialGamesLimit - sub.trialGamesUsed) : 0;
+  const trialProgress = sub && sub.trialGamesLimit > 0 ? Math.min(100, (sub.trialGamesUsed / sub.trialGamesLimit) * 100) : 0;
 
   async function handleConnect(provider: "discord" | "tiktok") {
     setLinkBusy(provider);
@@ -158,6 +159,23 @@ export default function Account() {
     }
   }
 
+  async function handleRedeemCode(e: FormEvent) {
+    e.preventDefault();
+    setRedeemError(null);
+    setRedeemSuccess(null);
+    setRedeeming(true);
+    try {
+      const result = await redeemCode(redeemCodeInput.trim());
+      setRedeemSuccess(`تمت إضافة ${result.gamesGranted} ألعاب لحسابك 🎉`);
+      setRedeemCodeInput("");
+      await refreshUser();
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : "حصل خطأ غير متوقع");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
   const canUnlinkDiscord = user.hasPassword || user.tiktokConnected;
   const canUnlinkTikTok = user.hasPassword || user.discordConnected;
 
@@ -202,7 +220,7 @@ export default function Account() {
               {sub ? subscriptionLabel(sub.status) : "—"}
               {sub?.status === "TRIAL" && (
                 <span className="mr-2 text-sm font-normal text-ink-muted">
-                  باقي {trialDaysLeft} من {TRIAL_DAYS} أيام
+                  باقي {trialGamesLeft} من {sub.trialGamesLimit} ألعاب مجانية
                 </span>
               )}
             </p>
@@ -215,6 +233,36 @@ export default function Account() {
                   className="h-full rounded-full bg-gradient-to-r from-primary to-accent shadow-glow-sm"
                 />
               </div>
+            )}
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={0.065}>
+          <GlassCard hoverLift={false} className="p-6 sm:p-8">
+            <h2 className="mb-4 font-semibold">استخدام كود</h2>
+            <form onSubmit={handleRedeemCode} className="flex max-w-sm flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <Input
+                  label="كود التفعيل"
+                  dir="ltr"
+                  value={redeemCodeInput}
+                  onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
+                  required
+                />
+              </div>
+              <Button type="submit" variant="secondary" size="md" magnetic={false} disabled={redeeming || !redeemCodeInput.trim()}>
+                {redeeming ? "جاري التفعيل..." : "فعّل الكود"}
+              </Button>
+            </form>
+            {redeemError && (
+              <p role="alert" className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {redeemError}
+              </p>
+            )}
+            {redeemSuccess && (
+              <p className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                {redeemSuccess}
+              </p>
             )}
           </GlassCard>
         </Reveal>

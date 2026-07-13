@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./lib/auth";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 import AuthCallback from "./pages/AuthCallback";
 import CapitalsControl from "./pages/CapitalsControl";
 import Dashboard from "./pages/Dashboard";
@@ -179,6 +180,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/d7logind7" element={<AdminLogin />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

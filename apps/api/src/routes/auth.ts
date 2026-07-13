@@ -118,6 +118,45 @@ function effectiveSubscriptionStatus(status: string, trialEndsAt: Date): string 
   return status;
 }
 
+/** Registration-method kill switch — fail-open (missing row = enabled), same precedent as
+ *  GameToggle. Only ever called on the *new account* path, never for an existing user logging
+ *  back in via a method that's since been disabled. */
+async function isAuthMethodEnabled(method: "EMAIL_PASSWORD" | "TIKTOK" | "DISCORD"): Promise<boolean> {
+  const toggle = await prisma.authMethodToggle.findUnique({ where: { method } });
+  return toggle?.enabled ?? true;
+}
+
+/** Snapshotted onto Subscription.trialGamesLimit at signup — see PlatformSettings' doc comment
+ *  for why this is a one-time stamp, not a live-read value. */
+async function getDefaultTrialGames(): Promise<number> {
+  const settings = await prisma.platformSettings.findUnique({ where: { key: "platform" } });
+  return settings?.defaultTrialGames ?? 3;
+}
+
+/** Unset TURNSTILE_SECRET_KEY = silent bypass (same precedent as DISCORD_ADMIN_LOG_WEBHOOK_URL) —
+ *  local dev keeps working with no CAPTCHA keys; it only starts actually verifying once a real
+ *  secret is configured. */
+async function verifyTurnstileToken(token: unknown, remoteIp: string | undefined): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true;
+  if (typeof token !== "string" || !token) return false;
+
+  try {
+    const body = new URLSearchParams({ secret, response: token });
+    if (remoteIp) body.set("remoteip", remoteIp);
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const data = (await res.json()) as { success?: boolean };
+    return data.success === true;
+  } catch (err) {
+    console.error("[api] Turnstile verification failed:", err);
+    return false;
+  }
+}
+
 function toPublicUser(user: {
   id: string;
   email: string;
@@ -126,7 +165,13 @@ function toPublicUser(user: {
   avatarUrl: string | null;
   role: string;
   passwordHash?: string | null;
-  subscription: { status: string; trialEndsAt: Date; currentPeriodEnd: Date | null } | null;
+  subscription: {
+    status: string;
+    trialEndsAt: Date;
+    currentPeriodEnd: Date | null;
+    trialGamesLimit: number;
+    trialGamesUsed: number;
+  } | null;
   tikTokAccount?: unknown;
   discordAccount?: unknown;
 }) {
@@ -145,6 +190,8 @@ function toPublicUser(user: {
           status: effectiveSubscriptionStatus(user.subscription.status, user.subscription.trialEndsAt),
           trialEndsAt: user.subscription.trialEndsAt,
           currentPeriodEnd: user.subscription.currentPeriodEnd,
+          trialGamesLimit: user.subscription.trialGamesLimit,
+          trialGamesUsed: user.subscription.trialGamesUsed,
         }
       : null,
   };
@@ -152,11 +199,31 @@ function toPublicUser(user: {
 
 const PROFILE_INCLUDE = { subscription: true, tikTokAccount: true, discordAccount: true } as const;
 
+// Public — Login/Register pages call this to know which methods to show. Purely a UI hint; the
+// real enforcement lives in each method's own route (see isAuthMethodEnabled call sites below).
+router.get(
+  "/methods",
+  asyncHandler(async (_req, res) => {
+    const rows = await prisma.authMethodToggle.findMany();
+    const enabledByMethod = new Map(rows.map((r) => [r.method, r.enabled]));
+    res.json({
+      emailPassword: enabledByMethod.get("EMAIL_PASSWORD") ?? true,
+      tiktok: enabledByMethod.get("TIKTOK") ?? true,
+      discord: enabledByMethod.get("DISCORD") ?? true,
+    });
+  }),
+);
+
 router.post(
   "/register",
   registerLimiter,
   asyncHandler(async (req, res) => {
-    const { email, password, displayName, username } = req.body ?? {};
+    if (!(await isAuthMethodEnabled("EMAIL_PASSWORD"))) {
+      res.status(403).json({ error: "التسجيل بالإيميل وكلمة السر متوقف مؤقتاً" });
+      return;
+    }
+
+    const { email, password, displayName, username, turnstileToken } = req.body ?? {};
     if (
       typeof email !== "string" ||
       typeof password !== "string" ||
@@ -170,6 +237,10 @@ router.post(
     }
     if (password.length < 8) {
       res.status(400).json({ error: "Password must be at least 8 characters" });
+      return;
+    }
+    if (!(await verifyTurnstileToken(turnstileToken, req.ip))) {
+      res.status(400).json({ error: "فشل التحقق من إنك مش روبوت — حاول تاني" });
       return;
     }
     const normalizedUsername = username.toLowerCase().trim();
@@ -196,6 +267,7 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 10);
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    const trialGamesLimit = await getDefaultTrialGames();
 
     const user = await prisma.user.create({
       data: {
@@ -204,7 +276,7 @@ router.post(
         passwordHash,
         displayName: displayName.trim(),
         subscription: {
-          create: { status: "TRIAL", trialEndsAt },
+          create: { status: "TRIAL", trialEndsAt, trialGamesLimit },
         },
       },
       include: PROFILE_INCLUDE,
@@ -333,6 +405,50 @@ router.post(
   }),
 );
 
+// Redeems an admin-generated bonus-games code — the claim itself is an updateMany guarded on
+// redeemedById: null (never a read-then-write, so two simultaneous redemption attempts on the same
+// code can't both succeed), and claiming + crediting the games run inside one transaction below.
+router.post(
+  "/redeem-code",
+  requireAuth,
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const codeRaw = req.body?.code;
+    const code = typeof codeRaw === "string" ? codeRaw.trim().toUpperCase() : "";
+    if (!code) {
+      res.status(400).json({ error: "لازم تكتب الكود" });
+      return;
+    }
+
+    // Claiming the code and crediting the games happen in one transaction — a crash between the
+    // two must not leave a code marked "redeemed" with nobody actually credited. The updateMany's
+    // redeemedById: null guard, evaluated inside the transaction, is what makes the claim itself
+    // race-safe against a second simultaneous attempt on the same code.
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const claim = await tx.redemptionCode.updateMany({
+          where: { code, redeemedById: null },
+          data: { redeemedById: req.userId!, redeemedAt: new Date() },
+        });
+        if (claim.count === 0) throw new Error("ALREADY_REDEEMED");
+
+        const redeemed = await tx.redemptionCode.findUniqueOrThrow({ where: { code } });
+        const subscription = await tx.subscription.update({
+          where: { userId: req.userId! },
+          data: { trialGamesLimit: { increment: redeemed.gamesGranted } },
+        });
+        return { gamesGranted: redeemed.gamesGranted, trialGamesLimit: subscription.trialGamesLimit };
+      });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      if (err instanceof Error && err.message === "ALREADY_REDEEMED") {
+        res.status(400).json({ error: "الكود غلط أو مستخدم قبل كده" });
+        return;
+      }
+      throw err;
+    }
+  }),
+);
+
 // --- Shared OAuth exchange ------------------------------------------------------
 // Both /tiktok/callback and /discord/callback redirect here via the frontend with a one-time
 // code instead of embedding JWTs directly in the redirect URL.
@@ -375,9 +491,16 @@ async function redirectWithSession(res: import("express").Response, userId: stri
 // non-contactable placeholder email (`<open_id>@tiktok.tikgames.local`) — passwordHash stays
 // null, which already blocks them from the email/password /login route.
 
-router.get("/tiktok/start", (_req, res) => {
-  res.redirect(getTikTokAuthorizeUrl(issueOAuthState()));
-});
+router.get(
+  "/tiktok/start",
+  asyncHandler(async (_req, res) => {
+    if (!(await isAuthMethodEnabled("TIKTOK"))) {
+      res.redirect(`${DASHBOARD_URL}/login?error=method_disabled`);
+      return;
+    }
+    res.redirect(getTikTokAuthorizeUrl(issueOAuthState()));
+  }),
+);
 
 // Authenticated: called via fetch (so the Bearer token rides along) from the account page,
 // which then navigates the browser to the returned URL itself — a plain <a href> redirect can't
@@ -463,7 +586,14 @@ router.get(
         });
         userId = existingAccount.userId;
       } else {
+        // Defense in depth — /tiktok/start already gates this, but a cached/bookmarked start URL
+        // from before the method was disabled could still land here mid-flow.
+        if (!(await isAuthMethodEnabled("TIKTOK"))) {
+          res.redirect(`${DASHBOARD_URL}/login?error=method_disabled`);
+          return;
+        }
         const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+        const trialGamesLimit = await getDefaultTrialGames();
         const username = await generateUniqueUsername(profile.display_name);
         const newUser = await prisma.user.create({
           data: {
@@ -471,7 +601,7 @@ router.get(
             username,
             displayName: profile.display_name,
             avatarUrl: profile.avatar_url,
-            subscription: { create: { status: "TRIAL", trialEndsAt } },
+            subscription: { create: { status: "TRIAL", trialEndsAt, trialGamesLimit } },
             tikTokAccount: {
               create: {
                 username: profile.display_name,
@@ -501,9 +631,16 @@ router.get(
 // (https://discord.com/developers/applications — add a redirect matching
 // DISCORD_OAUTH_REDIRECT_URI under OAuth2 > Redirects).
 
-router.get("/discord/start", (_req, res) => {
-  res.redirect(getDiscordAuthorizeUrl(issueOAuthState()));
-});
+router.get(
+  "/discord/start",
+  asyncHandler(async (_req, res) => {
+    if (!(await isAuthMethodEnabled("DISCORD"))) {
+      res.redirect(`${DASHBOARD_URL}/login?error=method_disabled`);
+      return;
+    }
+    res.redirect(getDiscordAuthorizeUrl(issueOAuthState()));
+  }),
+);
 
 // See the matching comment on /tiktok/link-start — same reasoning, same mechanism.
 router.post(
@@ -589,7 +726,14 @@ router.get(
         });
         userId = existingAccount.userId;
       } else {
+        // Defense in depth — /discord/start already gates this, but a cached/bookmarked start URL
+        // from before the method was disabled could still land here mid-flow.
+        if (!(await isAuthMethodEnabled("DISCORD"))) {
+          res.redirect(`${DASHBOARD_URL}/login?error=method_disabled`);
+          return;
+        }
         const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+        const trialGamesLimit = await getDefaultTrialGames();
         const fallbackEmail = `${profile.id}@discord.tikgames.local`;
         // Discord's email isn't guaranteed unique to us — another account (e.g. an email/password
         // one) may already own it. We deliberately don't merge into that account (see note
@@ -606,7 +750,7 @@ router.get(
             username,
             displayName: profile.username,
             avatarUrl: profile.avatar,
-            subscription: { create: { status: "TRIAL", trialEndsAt } },
+            subscription: { create: { status: "TRIAL", trialEndsAt, trialGamesLimit } },
             discordAccount: {
               create: {
                 discordUserId: profile.id,
