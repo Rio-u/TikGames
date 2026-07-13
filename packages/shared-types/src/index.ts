@@ -126,7 +126,8 @@ export type GameType =
   | "LOGOS"
   | "SPEED_WORD"
   | "MAZE"
-  | "DRAWING";
+  | "DRAWING"
+  | "WORD_ROUND";
 
 export const GAME_TYPES: GameType[] = [
   "MUSICAL_CHAIRS",
@@ -140,6 +141,7 @@ export const GAME_TYPES: GameType[] = [
   "SPEED_WORD",
   "MAZE",
   "DRAWING",
+  "WORD_ROUND",
 ];
 
 export interface MusicalChairsSettings {
@@ -558,6 +560,57 @@ export interface DrawingState {
   word: string | null;
   lastWinner: DrawingPlayer | null;
   winner: DrawingPlayer | null;
+  phaseEndsAt: string | null;
+}
+
+// --- Word Round (جولة كلمات) game engine ----------------------------------------------
+
+export interface WordRoundSettings {
+  /** How many puzzles this session shows before it auto-finishes — same round-bounded shape
+   *  as Flags/Capitals, this game's closest sibling. */
+  totalRounds: number;
+  roundSeconds: number;
+}
+
+export type WordRoundPhase = "WAITING_TO_START" | "PUZZLE" | "REVEALED" | "FINISHED";
+
+export interface WordRoundPlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  score: number;
+}
+
+/** One word claimed during the current puzzle — first correct submission of a given word wins
+ *  it, so this doubles as the round's "already claimed" list and its live progress feed. */
+export interface WordRoundFoundWord {
+  word: string;
+  handle: string;
+  displayName: string;
+  points: number;
+}
+
+export interface WordRoundState {
+  gameType: "WORD_ROUND";
+  gameSessionId: string;
+  phase: WordRoundPhase;
+  settings: WordRoundSettings;
+  /** Everyone who has scored at least one point, ranked highest-first. */
+  players: WordRoundPlayer[];
+  round: number;
+  /** The letter every valid word must contain this round. */
+  centralLetter: string | null;
+  /** The rest of this round's available letters (centralLetter itself is not repeated here). */
+  extraLetters: string[];
+  foundWords: WordRoundFoundWord[];
+  /** The full valid-word list for this round's puzzle — unlike centralLetter/extraLetters (the
+   *  public prompt), this is the actual answer key, so it stays hidden until REVEALED/FINISHED,
+   *  same reveal-gate pattern as GuessNumberState.secret and DrawingState.word: there's no
+   *  per-namespace filtering anywhere in this codebase, so it has to be absent from the payload
+   *  itself rather than just hidden client-side, or reading the socket traffic would be a free
+   *  answer key. */
+  allWords: string[] | null;
+  winner: WordRoundPlayer | null;
   phaseEndsAt: string | null;
 }
 

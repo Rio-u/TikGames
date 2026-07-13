@@ -85,6 +85,12 @@ function gameStatusText(state: GameState): string {
           : state.phase === "DRAWING"
             ? `دور ${state.round} — خمّن الرسمة في الشات`
             : `دور ${state.round} — الكلمة: ${state.word}`;
+    case "WORD_ROUND":
+      return state.phase === "WAITING_TO_START"
+        ? "هتبدأ أول جولة دلوقتي"
+        : state.phase === "PUZZLE"
+          ? `جولة ${state.round} / ${state.settings.totalRounds} — الحرف المميز: ${state.centralLetter}`
+          : `جولة ${state.round} / ${state.settings.totalRounds} — الكلمات: ${(state.allWords ?? []).join("، ")}`;
   }
 }
 

@@ -74,6 +74,7 @@ enum GameType {
   SPEED_WORD
   MAZE
   DRAWING
+  WORD_ROUND
 }
 
 enum GameSessionStatus {

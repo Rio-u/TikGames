@@ -20,6 +20,8 @@ import {
   type SpinWheelState,
   type TriviaSettings,
   type TriviaState,
+  type WordRoundSettings,
+  type WordRoundState,
   type WouldYouRatherSettings,
   type WouldYouRatherState,
 } from "@tikgames/shared-types";
@@ -34,6 +36,7 @@ import { MusicalChairsEngine } from "../games/musicalChairs.js";
 import { SpeedWordEngine } from "../games/speedWord.js";
 import { SpinWheelEngine } from "../games/spinWheel.js";
 import { TriviaEngine } from "../games/trivia.js";
+import { WordRoundEngine } from "../games/wordRound.js";
 import { WouldYouRatherEngine } from "../games/wouldYouRather.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { incrementViewerRanking } from "../lib/leaderboard.js";
@@ -59,6 +62,7 @@ const DEFAULT_LOGOS_SETTINGS: LogosSettings = { totalRounds: 10, answerDurationS
 const DEFAULT_SPEED_WORD_SETTINGS: SpeedWordSettings = { answerDurationSeconds: 12 };
 const DEFAULT_MAZE_SETTINGS: MazeSettings = { maxPlayers: 20, joinCommand: "!دخول", gridSize: 9, durationSeconds: 180 };
 const DEFAULT_DRAWING_SETTINGS: DrawingSettings = { roundSeconds: 60 };
+const DEFAULT_WORD_ROUND_SETTINGS: WordRoundSettings = { totalRounds: 8, roundSeconds: 45 };
 
 router.get(
   "/toggles",
@@ -401,6 +405,31 @@ router.post(
       return;
     }
 
+    if (gameType === "WORD_ROUND") {
+      const totalRounds = Number(settings?.totalRounds ?? DEFAULT_WORD_ROUND_SETTINGS.totalRounds);
+      if (!Number.isInteger(totalRounds) || totalRounds < 1 || totalRounds > 12) {
+        res.status(400).json({ error: "عدد الجولات لازم يكون بين 1 و 12" });
+        return;
+      }
+
+      const roundSeconds = Number(settings?.roundSeconds ?? DEFAULT_WORD_ROUND_SETTINGS.roundSeconds);
+      if (!Number.isInteger(roundSeconds) || roundSeconds < 20 || roundSeconds > 120) {
+        res.status(400).json({ error: "مدة الجولة لازم تكون بين 20 و 120 ثانية" });
+        return;
+      }
+
+      const config = await prisma.gameConfig.create({
+        data: {
+          userId: req.userId!,
+          gameType: "WORD_ROUND",
+          name: typeof name === "string" && name.trim() ? name.trim() : "جولة كلمات",
+          settings: { totalRounds, roundSeconds } satisfies WordRoundSettings,
+        },
+      });
+      res.status(201).json({ config });
+      return;
+    }
+
     res.status(400).json({ error: "النوع ده لسه مش متاح" });
   }),
 );
@@ -424,7 +453,8 @@ router.get(
           gameType === "LOGOS" ||
           gameType === "SPEED_WORD" ||
           gameType === "MAZE" ||
-          gameType === "DRAWING"
+          gameType === "DRAWING" ||
+          gameType === "WORD_ROUND"
             ? gameType
             : undefined,
       },
@@ -454,7 +484,8 @@ router.post(
       gameType !== "LOGOS" &&
       gameType !== "SPEED_WORD" &&
       gameType !== "MAZE" &&
-      gameType !== "DRAWING"
+      gameType !== "DRAWING" &&
+      gameType !== "WORD_ROUND"
     ) {
       res.status(400).json({ error: "gameType غير مدعوم" });
       return;
@@ -496,7 +527,8 @@ router.post(
       | LogosSettings
       | SpeedWordSettings
       | MazeSettings
-      | DrawingSettings;
+      | DrawingSettings
+      | WordRoundSettings;
     const defaultSettingsByType: Record<typeof gameType, AnyGameSettings> = {
       MUSICAL_CHAIRS: DEFAULT_MUSICAL_CHAIRS_SETTINGS,
       TRIVIA: DEFAULT_TRIVIA_SETTINGS,
@@ -509,6 +541,7 @@ router.post(
       SPEED_WORD: DEFAULT_SPEED_WORD_SETTINGS,
       MAZE: DEFAULT_MAZE_SETTINGS,
       DRAWING: DEFAULT_DRAWING_SETTINGS,
+      WORD_ROUND: DEFAULT_WORD_ROUND_SETTINGS,
     };
     let settings: AnyGameSettings = defaultSettingsByType[gameType]!;
     let gameConfigIdToUse: string | undefined;
@@ -599,7 +632,8 @@ router.post(
         | LogosState
         | SpeedWordState
         | MazeState
-        | DrawingState,
+        | DrawingState
+        | WordRoundState,
     ) => {
       prisma.gameSession
         .update({ where: { id: gameSession.id }, data: { state: JSON.parse(JSON.stringify(state)) } })
@@ -612,7 +646,8 @@ router.post(
         state.gameType === "CAPITALS" ||
         state.gameType === "LOGOS" ||
         state.gameType === "SPEED_WORD" ||
-        state.gameType === "DRAWING"
+        state.gameType === "DRAWING" ||
+        state.gameType === "WORD_ROUND"
       ) {
         for (const p of state.players) {
           const delta = p.score - (previousScores.get(p.handle) ?? 0);
@@ -684,7 +719,9 @@ router.post(
                         ? new SpeedWordEngine(gameSession.id, settings as SpeedWordSettings, speedWordBackgroundPool, onChange)
                         : gameType === "MAZE"
                           ? new MazeEngine(gameSession.id, settings as MazeSettings, onChange)
-                          : new DrawingEngine(gameSession.id, settings as DrawingSettings, onChange);
+                          : gameType === "DRAWING"
+                            ? new DrawingEngine(gameSession.id, settings as DrawingSettings, onChange)
+                            : new WordRoundEngine(gameSession.id, settings as WordRoundSettings, onChange);
 
     activeEngines.set(gameSession.id, engine);
     liveSessionToGameSession.set(liveSessionId, gameSession.id);

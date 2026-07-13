@@ -26,6 +26,7 @@ import SpeedWordControl from "./pages/SpeedWordControl";
 import SpinWheelControl from "./pages/SpinWheelControl";
 import Terms from "./pages/Terms";
 import TriviaControl from "./pages/TriviaControl";
+import WordRoundControl from "./pages/WordRoundControl";
 import WouldYouRatherControl from "./pages/WouldYouRatherControl";
 
 export default function App() {
@@ -161,6 +162,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DrawingControl />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/live/word-round"
+              element={
+                <ProtectedRoute>
+                  <WordRoundControl />
                 </ProtectedRoute>
               }
             />

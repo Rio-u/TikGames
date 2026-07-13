@@ -11,7 +11,8 @@ export type GameType =
   | "LOGOS"
   | "SPEED_WORD"
   | "MAZE"
-  | "DRAWING";
+  | "DRAWING"
+  | "WORD_ROUND";
 
 export interface LiveSession {
   id: string;
@@ -78,6 +79,11 @@ export interface MazeSettings {
 }
 
 export interface DrawingSettings {
+  roundSeconds: number;
+}
+
+export interface WordRoundSettings {
+  totalRounds: number;
   roundSeconds: number;
 }
 
@@ -349,6 +355,35 @@ export interface DrawingState {
   phaseEndsAt: string | null;
 }
 
+export interface WordRoundPlayer {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  score: number;
+}
+
+export interface WordRoundFoundWord {
+  word: string;
+  handle: string;
+  displayName: string;
+  points: number;
+}
+
+export interface WordRoundState {
+  gameType: "WORD_ROUND";
+  gameSessionId: string;
+  phase: "WAITING_TO_START" | "PUZZLE" | "REVEALED" | "FINISHED";
+  settings: WordRoundSettings;
+  players: WordRoundPlayer[];
+  round: number;
+  centralLetter: string | null;
+  extraLetters: string[];
+  foundWords: WordRoundFoundWord[];
+  allWords: string[] | null;
+  winner: WordRoundPlayer | null;
+  phaseEndsAt: string | null;
+}
+
 export type GameState =
   | MusicalChairsState
   | TriviaState
@@ -360,7 +395,8 @@ export type GameState =
   | LogosState
   | SpeedWordState
   | MazeState
-  | DrawingState;
+  | DrawingState
+  | WordRoundState;
 
 export async function startLive(channelUsername: string) {
   const res = await authedFetch("/live/start", {
@@ -407,7 +443,8 @@ export async function createGameConfig(
     | LogosSettings
     | SpeedWordSettings
     | MazeSettings
-    | DrawingSettings,
+    | DrawingSettings
+    | WordRoundSettings,
 ) {
   const res = await authedFetch("/games/configs", {
     method: "POST",

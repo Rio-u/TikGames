@@ -9,6 +9,7 @@ import type {
   SpeedWordState,
   SpinWheelState,
   TriviaState,
+  WordRoundState,
   WouldYouRatherState,
 } from "@tikgames/shared-types";
 import { useEffect, useState } from "react";
@@ -24,6 +25,7 @@ import { MusicalChairsOverlay } from "../components/MusicalChairsOverlay";
 import { SpeedWordOverlay } from "../components/SpeedWordOverlay";
 import { SpinWheelOverlay } from "../components/SpinWheelOverlay";
 import { TriviaOverlay } from "../components/TriviaOverlay";
+import { WordRoundOverlay } from "../components/WordRoundOverlay";
 import { WouldYouRatherOverlay } from "../components/WouldYouRatherOverlay";
 import { connectOverlaySocket } from "../lib/socket";
 
@@ -38,7 +40,8 @@ type GameState =
   | LogosState
   | SpeedWordState
   | MazeState
-  | DrawingState;
+  | DrawingState
+  | WordRoundState;
 
 export default function OverlayRoom() {
   const { overlayToken } = useParams();
@@ -112,6 +115,9 @@ export default function OverlayRoom() {
   }
   if (gameState?.gameType === "DRAWING") {
     return <DrawingOverlay state={gameState} chat={chat} strokes={strokes} />;
+  }
+  if (gameState?.gameType === "WORD_ROUND") {
+    return <WordRoundOverlay state={gameState} chat={chat} />;
   }
   return <MusicalChairsOverlay state={gameState} chat={chat} />;
 }

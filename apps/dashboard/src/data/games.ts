@@ -119,4 +119,13 @@ export const GAMES: GameDefinition[] = [
     imageUrl: "/games/drawing.jpg",
     route: "/live/drawing",
   },
+  {
+    id: "WORD_ROUND",
+    nameAr: "جولة كلمات",
+    descriptionAr: "كل جولة يظهر حرف مميز وحروف زيادة، وأي حد في الشات يكتب كلمة صحيحة فيها الحرف المميز ياخد نقط على قد طولها.",
+    emoji: "🔤",
+    gradient: "from-indigo-500/35 via-violet-600/20 to-canvas-elevated",
+    imageUrl: "/games/word-round.jpg",
+    route: "/live/word-round",
+  },
 ];
