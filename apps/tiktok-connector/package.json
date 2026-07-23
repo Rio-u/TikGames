@@ -5,7 +5,8 @@
   "description": "Standalone microservice that connects to TikTok LIVE rooms via the unofficial tiktok-live-connector library, normalizes events, and streams them to apps/api. Implements the LiveSourceConnector contract from @tikgames/shared-types so Kick (or other platforms) can be added later without touching apps/api.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@tikgames/shared-types": "workspace:*",

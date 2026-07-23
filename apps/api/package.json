@@ -5,7 +5,8 @@
   "description": "Main backend: REST API, auth, subscriptions, game state machines, Socket.io gateway for the dashboard and overlay. Talks to tiktok-connector over an internal authenticated WebSocket channel.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@tikgames/database": "workspace:*",

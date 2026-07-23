@@ -1,0 +1,29 @@
+# Production image for the TikGames backend.
+#
+# Runs BOTH apps/api (Express + Socket.io) and apps/tiktok-connector as one service. On a free
+# always-on host you get one process slot, and the connector connects *out* to the api's /internal
+# channel over localhost anyway, so co-locating them in a single container is both cheaper and
+# simpler than two services. scripts/start-backend.sh launches the pair.
+#
+# Build context is the repo ROOT (not apps/api) — this is a pnpm workspace and apps/api depends on
+# packages/shared-types + packages/database as workspace:* deps that can't be installed in isolation.
+FROM node:20-bookworm-slim
+
+# Prisma's query engine needs OpenSSL present at runtime; bookworm-slim ships without it.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+WORKDIR /repo
+COPY . .
+
+RUN pnpm install --frozen-lockfile
+# Generated here (inside the Linux image) so the Prisma engine binary matches this platform.
+RUN pnpm --filter @tikgames/database run generate
+
+# The api binds to $PORT (Render/Railway inject it); default 4000 for local `docker run`.
+ENV PORT=4000
+EXPOSE 4000
+
+CMD ["bash", "scripts/start-backend.sh"]

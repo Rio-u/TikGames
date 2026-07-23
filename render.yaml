@@ -1,0 +1,53 @@
+# Render Blueprint — one free web service running the whole TikGames backend (api + connector).
+# In Render: New → Blueprint → connect this repo. It reads this file and creates the service.
+# You still fill in the "sync: false" secrets in the dashboard (Render won't store them in git).
+#
+# Free tier note: the service sleeps after ~15 min with no traffic and cold-starts (~30-60s) on the
+# next request. While a stream is live (dashboard/overlay sockets connected) it stays awake.
+services:
+  - type: web
+    name: tikgames-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # MongoDB Atlas connection string (mongodb+srv://...). Must be a replica set — Atlas M0 is.
+      - key: DATABASE_URL
+        sync: false
+      # Secrets — Render generates strong random values; both api and connector read the same var.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CONNECTOR_INTERNAL_SECRET
+        generateValue: true
+      # Comma-separated list of the deployed frontend origins (your Vercel URLs). No trailing slash.
+      # e.g. https://tikgames-dashboard.vercel.app,https://tikgames-overlay.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+      # The dashboard's public URL (used by OAuth callback redirects).
+      - key: DASHBOARD_URL
+        sync: false
+      # TikTok signing provider (https://www.eulerstream.com — free tier). Needed only for REAL
+      # TikTok LIVE rooms; the /live simulate flow works without it. Leave blank to start.
+      - key: EULER_STREAM_API_KEY
+        sync: false
+      # Optional integrations — leave blank to disable each one.
+      - key: TIKTOK_OAUTH_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_OAUTH_REDIRECT_URI
+        sync: false
+      - key: DISCORD_OAUTH_CLIENT_ID
+        sync: false
+      - key: DISCORD_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_OAUTH_REDIRECT_URI
+        sync: false
+      - key: DISCORD_ADMIN_LOG_WEBHOOK_URL
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
