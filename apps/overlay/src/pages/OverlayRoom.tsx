@@ -12,8 +12,7 @@ import type {
   WordRoundState,
   WouldYouRatherState,
 } from "@tikgames/shared-types";
-import { applyDesignPrefs } from "@tikgames/game-3d";
-import { LiveSocketEvents, type DesignPrefsPayload, type GameCountdownPayload } from "@tikgames/shared-types";
+import { LiveSocketEvents, type GameCountdownPayload } from "@tikgames/shared-types";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CapitalsOverlay } from "../components/CapitalsOverlay";
@@ -53,6 +52,8 @@ export default function OverlayRoom() {
   const [strokes, setStrokes] = useState<Map<string, StrokeMessage>>(new Map());
   /** ISO end of the 3·2·1 pre-roll, from the server's game:countdown broadcast. */
   const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
+  /** The admin's platform-wide pre-roll design, sent with that same broadcast. */
+  const [countdownDesignId, setCountdownDesignId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!overlayToken) return;
@@ -72,11 +73,7 @@ export default function OverlayRoom() {
     });
     socket.on(LiveSocketEvents.GameCountdown, (payload: GameCountdownPayload) => {
       setCountdownEndsAt(payload.endsAt);
-    });
-    // Sent once on join. Writes through to the same storage the design hooks read, so the
-    // countdown and winner components pick it up without knowing it came from the server.
-    socket.on(LiveSocketEvents.DesignPrefs, (payload: DesignPrefsPayload) => {
-      applyDesignPrefs(payload);
+      setCountdownDesignId(payload.countdownDesignId);
     });
     socket.on("chat:comment", (payload: { viewer: { handle: string; displayName: string }; text: string; at: string }) => {
       // Newest first (prepend) — the shared convention every chat list renders directly, newest
@@ -148,7 +145,11 @@ export default function OverlayRoom() {
           containing block, i.e. the full browser source, without wrapping (and so re-laying out)
           any of the game overlays underneath. */}
       {countdownEndsAt && (
-        <PreRollCountdown endsAt={countdownEndsAt} onDone={() => setCountdownEndsAt(null)} />
+        <PreRollCountdown
+          endsAt={countdownEndsAt}
+          designId={countdownDesignId}
+          onDone={() => setCountdownEndsAt(null)}
+        />
       )}
     </>
   );

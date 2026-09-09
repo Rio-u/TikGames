@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Tailwind v4 auto-detects sources from the project root, which stops at this app. The 3D system
+   lives in packages/game-3d and its components carry their own utility classes — without this
+   they are never generated, and the winner screen renders with an unsized avatar and unscaled
+   type because every arbitrary value it uses was dropped. */
+@source "../../../packages/game-3d/src";
+
 @theme {
   --color-canvas: #05030d;
   --color-canvas-soft: #090514;

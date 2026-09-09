@@ -104,12 +104,6 @@ model User {
   displayName  String
   avatarUrl    String?
   role         UserRole @default(STREAMER)
-  // Which 3D scenes this streamer picked on /3d-designs. Stored on the account rather than only
-  // in the browser because the overlay is a different origin from the dashboard (a separate
-  // Vercel domain in production), so localStorage cannot cross between them — and the overlay is
-  // the copy that actually goes out on stream.
-  countdownDesignId String?
-  victoryDesignId   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -413,6 +407,10 @@ model PlatformSettings {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
   key               String   @unique @default("platform")
   defaultTrialGames Int      @default(3)
+  /// Which of the nine pre-roll 3D designs plays before every game, platform-wide. Admin-only and
+  /// deliberately not a per-streamer setting: it is part of the product's look, not a preference.
+  /// Null means the registry default (Energy Tunnel).
+  countdownDesignId String?
   updatedById       String?  @db.ObjectId
   updatedAt         DateTime @updatedAt
 }

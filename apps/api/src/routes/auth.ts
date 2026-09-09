@@ -408,28 +408,6 @@ router.post(
 // Redeems an admin-generated bonus-games code — the claim itself is an updateMany guarded on
 // redeemedById: null (never a read-then-write, so two simultaneous redemption attempts on the same
 // code can't both succeed), and claiming + crediting the games run inside one transaction below.
-/**
- * Saves which 3D scenes this streamer picked. Deliberately forgiving about the ids: the registry
- * that owns them lives in the frontend package, so validating against a list here would mean
- * duplicating it and breaking every save the moment a design is added. An unknown id resolves to
- * the default design on read (see getCountdownDesign), which is the safe failure either way.
- */
-router.put(
-  "/design-prefs",
-  requireAuth,
-  asyncHandler(async (req: AuthedRequest, res) => {
-    const { countdownDesignId, victoryDesignId } = req.body ?? {};
-    const clean = (v: unknown): string | null =>
-      typeof v === "string" && v.length > 0 && v.length <= 64 ? v : null;
-
-    await prisma.user.update({
-      where: { id: req.userId! },
-      data: { countdownDesignId: clean(countdownDesignId), victoryDesignId: clean(victoryDesignId) },
-    });
-    res.json({ ok: true });
-  }),
-);
-
 router.post(
   "/redeem-code",
   requireAuth,

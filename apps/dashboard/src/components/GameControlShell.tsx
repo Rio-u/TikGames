@@ -112,6 +112,8 @@ export function GameControlShell<TState extends GameState>({
   const [chatFeed, setChatFeed] = useState<ChatMessage[]>([]);
   /** ISO end of the 3·2·1 pre-roll, from the server's game:countdown broadcast. */
   const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
+  /** The admin's platform-wide pre-roll design, sent with that same broadcast. */
+  const [countdownDesignId, setCountdownDesignId] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   // True while handleStartGame's auto-begin chain is in flight — see there for why.
@@ -140,6 +142,7 @@ export function GameControlShell<TState extends GameState>({
 
     socket.on(LiveSocketEvents.GameCountdown, (payload: GameCountdownPayload) => {
       setCountdownEndsAt(payload.endsAt);
+      setCountdownDesignId(payload.countdownDesignId);
     });
 
     socket.on("chat:comment", (payload: { viewer: { handle: string; displayName: string }; text: string; at: string }) => {
@@ -192,6 +195,7 @@ export function GameControlShell<TState extends GameState>({
       if (autoBegin) {
         const begun = await beginGameSession(res.gameSessionId);
         setCountdownEndsAt(begun.countdownEndsAt);
+        setCountdownDesignId(begun.countdownDesignId);
         state = begun.state as TState;
       }
       setGameSessionId(res.gameSessionId);
@@ -209,6 +213,7 @@ export function GameControlShell<TState extends GameState>({
     try {
       const res = await beginGameSession(gameSessionId);
       setCountdownEndsAt(res.countdownEndsAt);
+      setCountdownDesignId(res.countdownDesignId);
       setGameState(res.state as TState);
     } catch (err) {
       setGameError(err instanceof Error ? err.message : "حصل خطأ غير متوقع");
@@ -389,7 +394,11 @@ export function GameControlShell<TState extends GameState>({
           <div className="relative flex min-h-0 flex-1 flex-col">
             {renderGameView(gameState, chatFeed, handleStartGame)}
             {countdownEndsAt && (
-              <PreRollCountdown endsAt={countdownEndsAt} onDone={() => setCountdownEndsAt(null)} />
+              <PreRollCountdown
+                endsAt={countdownEndsAt}
+                designId={countdownDesignId}
+                onDone={() => setCountdownEndsAt(null)}
+              />
             )}
           </div>
         </div>

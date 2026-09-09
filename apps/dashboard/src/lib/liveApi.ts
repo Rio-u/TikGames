@@ -474,7 +474,11 @@ export async function startGameSession(liveSessionId: string, gameType: GameType
  */
 export async function beginGameSession(gameSessionId: string) {
   const res = await authedFetch(`/games/session/${gameSessionId}/begin`, { method: "POST" });
-  return parseJsonOrThrow(res) as Promise<{ state: GameState; countdownEndsAt: string }>;
+  return parseJsonOrThrow(res) as Promise<{
+    state: GameState;
+    countdownEndsAt: string;
+    countdownDesignId: string | null;
+  }>;
 }
 
 export async function stopGameSession(gameSessionId: string) {
@@ -530,16 +534,4 @@ export interface HomepageSettings {
 export async function getHomepageSettings() {
   const res = await authedFetch("/games/homepage");
   return parseJsonOrThrow(res) as Promise<HomepageSettings>;
-}
-
-/**
- * Mirrors the picked 3D scenes onto the account. The selection also lives in localStorage for
- * instant reads, but only the account copy can reach the overlay, which runs on its own origin.
- */
-export async function saveDesignPrefs(countdownDesignId: string, victoryDesignId: string) {
-  const res = await authedFetch("/auth/design-prefs", {
-    method: "PUT",
-    body: JSON.stringify({ countdownDesignId, victoryDesignId }),
-  });
-  return parseJsonOrThrow(res);
 }

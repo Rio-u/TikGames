@@ -788,10 +788,19 @@ router.post(
 
     // The 3·2·1 pre-roll. This is the only place engine.begin() is called from, which is what
     // lets one broadcast cover all twelve games without a per-engine phase.
+    //
+    // The design id rides along: the dashboard and the overlay are separate origins and cannot
+    // share browser storage, so sending the admin's platform-wide choice with the countdown is
+    // what keeps both showing the same scene. A missing row means the registry default.
+    const platform = await prisma.platformSettings
+      .findUnique({ where: { key: "platform" }, select: { countdownDesignId: true } })
+      .catch(() => null);
+
     const endsAt = new Date(Date.now() + GAME_PRE_ROLL_MS);
     broadcastToLive(gameSession.liveSessionId, LiveSocketEvents.GameCountdown, {
       gameSessionId,
       endsAt: endsAt.toISOString(),
+      countdownDesignId: platform?.countdownDesignId ?? null,
     });
 
     setTimeout(() => {
@@ -808,7 +817,11 @@ router.post(
 
     // 202: accepted, not yet started. The state returned is still the pre-begin one — clients
     // render the countdown off the broadcast above and wait for the game:state that follows.
-    res.status(202).json({ state: engine.getState(), countdownEndsAt: endsAt.toISOString() });
+    res.status(202).json({
+      state: engine.getState(),
+      countdownEndsAt: endsAt.toISOString(),
+      countdownDesignId: platform?.countdownDesignId ?? null,
+    });
   }),
 );
 

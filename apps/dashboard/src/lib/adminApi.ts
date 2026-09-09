@@ -210,7 +210,19 @@ export async function adminSetAuthToggle(method: string, enabled: boolean) {
 
 export async function adminGetPlatformSettings() {
   const res = await authedFetch("/admin/settings");
-  return parseJsonOrThrow(res) as Promise<{ defaultTrialGames: number }>;
+  return parseJsonOrThrow(res) as Promise<{ defaultTrialGames: number; countdownDesignId: string | null }>;
+}
+
+/**
+ * The platform-wide pre-roll 3D design. Its own endpoint rather than a field on the settings PUT,
+ * so the picker never has to send the trial-games number it has nothing to do with.
+ */
+export async function adminSetCountdownDesign(countdownDesignId: string) {
+  const res = await authedFetch("/admin/countdown-design", {
+    method: "PUT",
+    body: JSON.stringify({ countdownDesignId }),
+  });
+  return parseJsonOrThrow(res) as Promise<{ countdownDesignId: string | null }>;
 }
 
 export async function adminUpdatePlatformSettings(defaultTrialGames: number) {

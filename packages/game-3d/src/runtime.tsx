@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Stage } from "./shared/Stage";
 import type { Design } from "./shared/types";
-import { getCountdownDesign, getVictoryDesign } from "./registry";
-import { useCountdownSelection, useVictorySelection } from "./registry/selection";
+import { getCountdownDesign } from "./registry";
+import { RoundTimerScene } from "./countdown/RoundTimer";
+import { VictoryScene3D } from "./victory/VictoryScene3D";
 
 /**
- * What the game renders. Everything here resolves the *selected* design from the registry, so
- * changing the selection changes the live game with no other wiring.
+ * What the game renders.
+ *
+ * Only one thing here is configurable: which of the nine designs plays as the pre-roll, and that
+ * is an admin setting that applies platform-wide. It arrives on the `game:countdown` broadcast
+ * alongside the timestamp, so both the dashboard and the overlay use the same design without
+ * either of them storing or fetching anything.
+ *
+ * The round timer and the winner scene are fixed. Neither is chosen — the timer because it has to
+ * stay quiet next to the question it sits beside, and the winner because it is the one moment the
+ * whole product builds to and should look the same every time.
  */
 
-/** Renders one design inside the stage it asked for. Shared by the game and the picker, which is
- *  what makes the picker a true preview rather than a lookalike. */
+/** Renders one design inside the stage it asked for. Shared by the game and the admin picker. */
 export function DesignStage({
   design,
   value,
@@ -71,11 +79,10 @@ export function PreRollCountdown({
 }: {
   endsAt: string;
   onDone?: () => void;
-  /** Overrides the stored selection. The picker uses this; the game never passes it. */
-  designId?: string;
+  /** The admin's platform-wide choice, forwarded from the game:countdown broadcast. */
+  designId?: string | null;
 }) {
-  const [selectedId] = useCountdownSelection();
-  const design = useMemo(() => getCountdownDesign(designId ?? selectedId), [designId, selectedId]);
+  const design = useMemo(() => getCountdownDesign(designId), [designId]);
 
   const [remaining, setRemaining] = useState(() =>
     Math.ceil((new Date(endsAt).getTime() - Date.now()) / 1000),
@@ -89,7 +96,7 @@ export function PreRollCountdown({
       const left = Math.ceil(msLeft / 1000);
       setRemaining(left);
       // Progress through the current second, for designs that beat on each tick.
-      setFraction(1 - ((msLeft % 1000) + 1000) % 1000 / 1000);
+      setFraction(1 - (((msLeft % 1000) + 1000) % 1000) / 1000);
       if (left <= -1) onDone?.();
     };
     tick();
@@ -114,25 +121,23 @@ export function PreRollCountdown({
 }
 
 /* ---------------------------------------------------------------------------
-   In-round countdown
+   In-round timer
    --------------------------------------------------------------------------- */
 
 /**
- * The timer inside a live round. Renders nothing once the phase ends rather than leaving an idle
- * canvas running — over a long stream that is the difference between one scene's cost and one
- * scene's cost permanently.
+ * The timer inside a live round. Fixed design, not selectable — see RoundTimerScene for why.
+ * Renders nothing once the phase ends rather than leaving an idle canvas running.
  */
 export function RoundCountdown({
   secondsLeft,
-  size = 190,
-  designId,
+  size = 170,
+  totalSeconds,
 }: {
   secondsLeft: number | null;
   size?: number;
-  designId?: string;
+  /** The phase's full duration, so the arc can show how much of it is left. */
+  totalSeconds?: number;
 }) {
-  const [selectedId] = useCountdownSelection();
-  const design = useMemo(() => getCountdownDesign(designId ?? selectedId), [designId, selectedId]);
   const [fraction, setFraction] = useState(0);
 
   useEffect(() => {
@@ -144,17 +149,30 @@ export function RoundCountdown({
 
   if (secondsLeft === null) return null;
 
+  // Without a known total the arc would have no scale, so it falls back to a fixed 30s sweep —
+  // still a truthful "time is running out", just not calibrated to this particular phase.
+  const remainingFraction = Math.min(secondsLeft / (totalSeconds && totalSeconds > 0 ? totalSeconds : 30), 1);
+
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <DesignStage
-        design={design}
-        value={secondsLeft}
-        progress={fraction}
-        urgent={secondsLeft <= 3}
-        // Small on screen; a full parallax lean would swing the composition out of its own box.
-        parallax={0.12}
-        overlaid
-      />
+      <Stage
+        camera={{ position: [0, 0, 6.2], fov: 45 }}
+        // No post-processing at all. Two reasons: this is the only scene that renders for the
+        // whole round rather than in a burst, so the composer's cost is permanent; and on a
+        // transparent canvas the composer's own pass leaves a faint darkened rectangle where the
+        // canvas sits, which is plainly visible against the game's artwork. The emissive
+        // materials and the backing disc give it enough glow without one.
+        effects={{ bloom: 0, chromatic: 0, vignette: 0 }}
+        parallax={0}
+      >
+        <RoundTimerScene
+          key={secondsLeft}
+          value={secondsLeft}
+          progress={fraction}
+          urgent={secondsLeft <= 5}
+          remainingFraction={remainingFraction}
+        />
+      </Stage>
     </div>
   );
 }
@@ -164,26 +182,35 @@ export function RoundCountdown({
    --------------------------------------------------------------------------- */
 
 /**
- * The victory scene. Runs its entrance once from mount and then holds — `progress` climbs to 1
- * over `duration` and stays there, so the celebration lands and settles instead of looping.
+ * The winner moment: full-screen, with the winner's photo and name at the centre of it.
+ *
+ * `pointer-events-none` throughout. It covers the entire viewport by design, and on the
+ * streamer's dashboard the "لعبة جديدة" and exit controls are underneath it — blocking those
+ * behind a celebration would strand the streamer mid-broadcast.
  */
-export function VictoryScene({
-  value,
-  duration = 2600,
-  designId,
-  className,
+export function VictoryCelebration({
+  displayName,
+  avatarUrl,
+  handle,
+  subtitle,
+  duration = 2800,
+  children,
 }: {
-  /** Whatever the game wants celebrated — a score, a round count, an empty string for none. */
-  value: string | number;
+  displayName: string;
+  avatarUrl?: string | null;
+  /** Remounts the whole moment when the winner changes, restarting the sequence. */
+  handle: string;
+  subtitle?: string;
   duration?: number;
-  designId?: string;
-  className?: string;
+  /** Optional extra DOM under the name — the dashboard puts its buttons here. */
+  children?: ReactNode;
 }) {
-  const [selectedId] = useVictorySelection();
-  const design = useMemo(() => getVictoryDesign(designId ?? selectedId), [designId, selectedId]);
   const [progress, setProgress] = useState(0);
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
+    setProgress(0);
+    setImgFailed(false);
     const started = Date.now();
     let raf = 0;
     const step = () => {
@@ -193,7 +220,65 @@ export function VictoryScene({
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [duration, design.id]);
+  }, [duration, handle]);
 
-  return <DesignStage design={design} value={value} progress={progress} className={className} overlaid />;
+  // The portrait and type ride the same curve as the scene, one beat behind the blast.
+  const reveal = Math.min(Math.max((progress - 0.14) / 0.34, 0), 1);
+  const settle = 1 - Math.pow(1 - reveal, 3);
+  const nameIn = Math.min(Math.max((progress - 0.3) / 0.34, 0), 1);
+
+  return (
+    <div key={handle} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
+      {/* The scene fills the viewport; the portrait is laid over its centre. */}
+      <div className="absolute inset-0">
+        <Stage
+          camera={{ position: [0, 0, 11], fov: 52 }}
+          effects={{ bloom: 1.15, bloomThreshold: 0.42, chromatic: 0.0009, vignette: 0 }}
+          parallax={0.5}
+        >
+          <VictoryScene3D progress={progress} />
+        </Stage>
+      </div>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 text-center">
+        <div
+          className="relative"
+          style={{
+            transform: `scale(${0.4 + settle * 0.6})`,
+            opacity: reveal,
+          }}
+        >
+          <span className="absolute -inset-6 -z-10 animate-glow-pulse rounded-full bg-accent/25 blur-3xl" />
+          <div className="h-[clamp(120px,20vh,210px)] w-[clamp(120px,20vh,210px)] overflow-hidden rounded-full border-[3px] border-accent/80 shadow-[0_0_60px_-8px_var(--color-accent)]">
+            {avatarUrl && !imgFailed ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                onError={() => setImgFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-accent text-[clamp(3rem,7vh,5rem)] font-black text-white">
+                {displayName.trim().charAt(0) || "?"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ opacity: nameIn, transform: `translateY(${(1 - nameIn) * 22}px)` }}>
+          <p className="text-[clamp(0.8rem,1.6vh,1rem)] font-bold uppercase tracking-[0.35em] text-accent">
+            الفائز
+          </p>
+          <h1 className="mt-2 text-[clamp(2rem,7vh,4.5rem)] font-black leading-none text-white drop-shadow-[0_0_30px_rgba(192,132,252,0.55)]">
+            <bdi>{displayName}</bdi>
+          </h1>
+          {subtitle && (
+            <p className="mt-3 text-[clamp(1rem,2.4vh,1.6rem)] font-bold text-[#ffb545]">{subtitle}</p>
+          )}
+        </div>
+
+        {children && <div className="pointer-events-auto mt-2">{children}</div>}
+      </div>
+    </div>
+  );
 }

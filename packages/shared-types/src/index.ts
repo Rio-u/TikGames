@@ -638,21 +638,7 @@ export const LiveSocketEvents = {
   RoomStats: "live:roomStats",
   DrawStroke: "draw:stroke",
   GameCountdown: "game:countdown",
-  DesignPrefs: "design:prefs",
 } as const;
-
-/**
- * The streamer's chosen 3D scenes, pushed to the overlay when it joins.
- *
- * The dashboard and the overlay are separate origins, so the selection the streamer makes on
- * /3d-designs cannot reach the overlay through browser storage. It is saved to the account and
- * replayed down this channel instead — the overlay already authenticates by overlay token, which
- * identifies the session and therefore the user, so nothing new has to be exchanged.
- */
-export interface DesignPrefsPayload {
-  countdownDesignId: string | null;
-  victoryDesignId: string | null;
-}
 
 /**
  * The 3·2·1 pre-roll that plays before every game, broadcast once by POST
@@ -670,6 +656,15 @@ export interface DesignPrefsPayload {
 export interface GameCountdownPayload {
   gameSessionId: string;
   endsAt: string;
+  /**
+   * Which pre-roll design to play, from the platform-wide admin setting.
+   *
+   * Carried on the broadcast rather than fetched or stored client-side, because the dashboard and
+   * the overlay are separate origins that cannot share browser storage — and because sending it
+   * with the countdown guarantees both are showing the same design in the same three seconds.
+   * Null falls back to the registry default.
+   */
+  countdownDesignId: string | null;
 }
 
 /** How long that pre-roll runs. Shared so the API and both frontends can't drift apart. */

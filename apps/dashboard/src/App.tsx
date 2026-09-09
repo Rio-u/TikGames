@@ -236,7 +236,7 @@ export default function App() {
             <Route
               path="/3d-designs"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute role="ADMIN">
                   <Suspense fallback={null}>
                     <DesignLab />
                   </Suspense>

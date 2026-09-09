@@ -3,7 +3,6 @@ import {
   InternalSocketEvents,
   LiveSocketEvents,
   WidgetSocketEvents,
-  type DesignPrefsPayload,
   type LiveAlert,
   type LiveEvent,
   type LiveRoomStats,
@@ -157,7 +156,6 @@ export function setupSocketServer(httpServer: HttpServer): Server {
       return;
     }
     socket.data.liveSessionId = session.id;
-    socket.data.userId = session.userId;
     next();
   });
 
@@ -175,20 +173,6 @@ export function setupSocketServer(httpServer: HttpServer): Server {
     // showing already arrived. Without this snapshot a leaderboard added mid-stream starts empty
     // and stays empty until the next gift — which reads as broken.
     socket.emit(WidgetSocketEvents.Snapshot, snapshotFor(liveSessionId));
-
-    // The streamer's chosen 3D scenes. The overlay is a different origin from the dashboard, so
-    // this is the only way its selection reaches the copy that goes out on stream.
-    const userId = socket.data.userId as string | undefined;
-    if (userId) {
-      prisma.user
-        .findUnique({ where: { id: userId }, select: { countdownDesignId: true, victoryDesignId: true } })
-        .then((u) => {
-          if (u) socket.emit(LiveSocketEvents.DesignPrefs, u satisfies DesignPrefsPayload);
-        })
-        .catch(() => {
-          // Never fatal: the overlay falls back to its own stored selection, then to the default.
-        });
-    }
   });
 
   // --- dashboard: authenticated streamer monitoring ---------------------------------

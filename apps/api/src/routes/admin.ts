@@ -317,7 +317,10 @@ router.get(
   "/settings",
   asyncHandler(async (_req, res) => {
     const settings = await prisma.platformSettings.findUnique({ where: { key: "platform" } });
-    res.json({ defaultTrialGames: settings?.defaultTrialGames ?? 3 });
+    res.json({
+      defaultTrialGames: settings?.defaultTrialGames ?? 3,
+      countdownDesignId: settings?.countdownDesignId ?? null,
+    });
   }),
 );
 
@@ -336,6 +339,32 @@ router.put(
     });
     await logAdminAction(req.userId!, "PLATFORM_SETTINGS_UPDATED", undefined, { defaultTrialGames });
     res.json({ defaultTrialGames: settings.defaultTrialGames });
+  }),
+);
+
+/**
+ * The pre-roll 3D design, platform-wide. Its own endpoint rather than a field on PUT /settings so
+ * the design picker never has to send — and therefore never risks overwriting — the trial-games
+ * number it has nothing to do with.
+ *
+ * The id is not validated against a list: the registry that owns these lives in the frontend
+ * package, so a copy here would have to be kept in step and would reject every new design until
+ * it was. An unknown id resolves to the default on read (see getCountdownDesign), which is the
+ * safe failure either way.
+ */
+router.put(
+  "/countdown-design",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const raw = req.body?.countdownDesignId;
+    const countdownDesignId = typeof raw === "string" && raw.length > 0 && raw.length <= 64 ? raw : null;
+
+    const settings = await prisma.platformSettings.upsert({
+      where: { key: "platform" },
+      update: { countdownDesignId, updatedById: req.userId! },
+      create: { key: "platform", countdownDesignId, updatedById: req.userId! },
+    });
+    await logAdminAction(req.userId!, "COUNTDOWN_DESIGN_UPDATED", undefined, { countdownDesignId });
+    res.json({ countdownDesignId: settings.countdownDesignId });
   }),
 );
 

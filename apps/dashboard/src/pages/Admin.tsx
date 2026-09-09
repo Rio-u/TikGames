@@ -10,6 +10,7 @@ import {
   Key,
   MusicNotes,
   ShieldCheck,
+  Sparkle,
   Star,
   Ticket,
   ToggleLeft,
@@ -62,7 +63,7 @@ import {
   type GameToggle,
   type MusicTrack,
 } from "../lib/adminApi";
-import { Button } from "../components/Button";
+import { Button, ButtonLink } from "../components/Button";
 import { Container } from "../components/Container";
 import { GlassCard } from "../components/GlassCard";
 import { Input } from "../components/Input";
@@ -1448,6 +1449,12 @@ export default function Admin() {
               {label}
             </Button>
           ))}
+          {/* Its own route rather than a tab here: the picker runs nine live 3D scenes, and
+              mounting those inside this page would make every other tab pay for them. */}
+          <ButtonLink to="/3d-designs" size="md" variant="secondary" magnetic={false}>
+            <Sparkle size={16} />
+            شكل العد التنازلي
+          </ButtonLink>
         </div>
 
         {tab === "games" && <GamesTab />}
