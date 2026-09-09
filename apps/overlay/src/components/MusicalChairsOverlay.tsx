@@ -373,8 +373,8 @@ export function MusicalChairsOverlay({ state, chat }: { state: MusicalChairsStat
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
             >

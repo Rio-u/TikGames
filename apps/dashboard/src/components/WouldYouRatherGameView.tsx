@@ -311,9 +311,9 @@ export function WouldYouRatherGameView({
           {inRound && (
             <motion.div
               key="round"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[1fr_280px]"
             >
               <div className="flex items-center justify-center">
@@ -328,8 +328,8 @@ export function WouldYouRatherGameView({
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="flex h-full w-full items-center justify-center"
             >

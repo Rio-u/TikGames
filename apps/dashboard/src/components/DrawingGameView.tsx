@@ -401,9 +401,9 @@ export function DrawingGameView({
           {roundPhases && (
             <motion.div
               key="round"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
             >
               <ParticipantsPanel players={state.players} />
@@ -457,8 +457,8 @@ export function DrawingGameView({
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="relative grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
             >

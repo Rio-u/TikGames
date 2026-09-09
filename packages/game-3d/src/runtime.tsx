@@ -111,9 +111,12 @@ export function PreRollCountdown({
   const label = PRE_ROLL_LABELS[Math.min(Math.max(remaining, 0), 3)] ?? "يلا!";
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-canvas/75 backdrop-blur-sm" />
-      <div className="relative h-full max-h-[620px] w-full max-w-[620px]">
+    // Fixed and edge-to-edge. It was `absolute` inside a 620px box, which both capped the scene
+    // to a square in the middle of the page and left it scoped to whatever the nearest positioned
+    // ancestor happened to be — on the dashboard, the game view rather than the window.
+    <div className="pointer-events-none fixed inset-0 z-[60]">
+      <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm" />
+      <div className="absolute inset-0">
         <DesignStage design={design} value={label} progress={fraction} urgent={remaining <= 1} overlaid />
       </div>
     </div>

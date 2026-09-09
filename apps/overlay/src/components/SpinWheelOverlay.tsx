@@ -664,9 +664,9 @@ export function SpinWheelOverlay({ state, chat }: { state: SpinWheelState | null
           {inRound && (
             <motion.div
               key="round"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
             >
               <ParticipantsPanel state={state} />
@@ -678,8 +678,8 @@ export function SpinWheelOverlay({ state, chat }: { state: SpinWheelState | null
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
             >

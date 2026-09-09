@@ -218,8 +218,8 @@ export function MazeOverlay({ state, chat }: { state: MazeState | null; chat: Ch
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="grid w-full max-w-5xl grid-cols-[220px_1fr] items-center gap-5"
             >

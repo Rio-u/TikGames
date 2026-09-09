@@ -61,14 +61,19 @@ function Ribs({ tint, speed }: { tint: string; speed: number }) {
       const z = ((t.current * 6 + i * 1.15) % 30) - 27;
       m.position.z = z;
       const near = THREE.MathUtils.clamp(1 + z / 12, 0, 1);
-      m.scale.setScalar(2.6 + (1 - near) * 1.6);
+      m.scale.setScalar(1.9 + (1 - near) * 1.1);
       m.rotation.z = z * 0.035 + t.current * 0.1;
       // Fades up out of the far dark and back down as it sweeps past the camera, so ribs never
       // pop into or out of existence at the ends of the recycle run. Each rib owns a cloned
       // material precisely so it can hold its own opacity.
+      // Gone by z = -2, which is behind the number at z = 1.2. The fade-out used to run to z = 3,
+      // so a rib crossing the glyph's own plane sat lit right behind it and washed the digit out.
       const fade =
-        THREE.MathUtils.smoothstep(z, -27, -16) * (1 - THREE.MathUtils.smoothstep(z, 0, 3));
-      (m.material as THREE.MeshBasicMaterial).opacity = fade * 0.9;
+        THREE.MathUtils.smoothstep(z, -27, -16) * (1 - THREE.MathUtils.smoothstep(z, -6, -2));
+      // 0.3, not 0.9. Twenty-six additive frames stack down the length of the tunnel, so what
+      // reads on screen is their sum — at 0.9 each the wall saturates to white and swallows the
+      // digit sitting in front of it.
+      (m.material as THREE.MeshBasicMaterial).opacity = fade * 0.3;
       (m.material as THREE.MeshBasicMaterial).color.set(tint);
       m.visible = fade > 0.02;
     });
@@ -92,20 +97,20 @@ function Ribs({ tint, speed }: { tint: string; speed: number }) {
 function Streaks({ tint, speed }: { tint: string; speed: number }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const N = 54;
+  const N = 40;
 
   const bits = useMemo(
     () =>
       Array.from({ length: N }, () => {
         const a = Math.random() * Math.PI * 2;
-        const r = 1.6 + Math.random() * 2.6;
+        const r = 1.9 + Math.random() * 3.2;
         return { x: Math.cos(a) * r, y: Math.sin(a) * r * 0.75, off: Math.random(), len: 1.4 + Math.random() * 3.4, w: 0.012 + Math.random() * 0.03 };
       }),
     [],
   );
 
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.75, toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false }),
+    () => new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.42, toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false }),
     [tint],
   );
 
@@ -154,19 +159,19 @@ function Scene({ value, progress, urgent }: SceneProps) {
       <Ribs tint={tint} speed={speed} />
       <Streaks tint={tint} speed={speed} />
 
-      <group ref={hub} position={[0, 0, 1.2]}>
+      <group ref={hub} position={[0, 0, 3.4]}>
         <VolumetricNumber
           key={String(value)}
           value={value}
-          size={2.4}
-          depth={0.55}
+          size={3.1}
+          depth={0.66}
           face={P.highlight}
           body={P.violet}
           edge={tint}
           intensity={urgent ? 1.35 : 1.0}
         />
-        <FresnelShell color={tint} power={2.6} intensity={0.8}>
-          <sphereGeometry args={[1.85, 26, 18]} />
+        <FresnelShell color={tint} power={3.8} intensity={0.5}>
+          <sphereGeometry args={[2.2, 26, 18]} />
         </FresnelShell>
       </group>
 
@@ -181,7 +186,7 @@ export const Countdown06: Design = {
   nameAr: "نفق الطاقة",
   descriptionAr: "اندفاع في نفق — أضلاع وخطوط ضوء بتعدّي جنب الكاميرا، والرقم ثابت في القلب.",
   Scene,
-  camera: { position: [0, 0, 6.5], fov: 62 },
-  effects: { bloom: 0.9, bloomThreshold: 0.46, chromatic: 0.0012, vignette: 0.6 },
+  camera: { position: [0, 0, 9.5], fov: 50 },
+  effects: { bloom: 0.72, bloomThreshold: 0.54, chromatic: 0.0009, vignette: 0.5 },
   parallax: 0.25,
 };

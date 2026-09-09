@@ -311,9 +311,9 @@ export function WouldYouRatherOverlay({ state, chat }: { state: WouldYouRatherSt
           {inRound && (
             <motion.div
               key="round"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="flex w-full justify-center"
             >
               <VoteArena state={state} />
@@ -323,8 +323,8 @@ export function WouldYouRatherOverlay({ state, chat }: { state: WouldYouRatherSt
           {state.phase === "FINISHED" && (
             <motion.div
               key="finished"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
               className="flex w-full justify-center"
             >
