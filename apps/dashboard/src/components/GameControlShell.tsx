@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { Link } from "react-router-dom";
 import { ACCESS_TOKEN_KEY, useAuth } from "../lib/auth";
-import { PreRollCountdown } from "./three/Countdown3D";
+import { PreRollCountdown } from "@tikgames/game-3d";
 import {
   beginGameSession,
   createGameConfig,

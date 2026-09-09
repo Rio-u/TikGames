@@ -6,7 +6,7 @@ import { Branding } from "./Branding";
 import { ChatStrip, type ChatItem } from "./ChatStrip";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
-import { RoundCountdown } from "./three/Countdown3D";
+import { RoundCountdown } from "@tikgames/game-3d";
 
 export type { ChatItem };
 

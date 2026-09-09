@@ -81,6 +81,12 @@ importers:
       '@react-three/fiber':
         specifier: ^8.17.10
         version: 8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0)
+      '@react-three/postprocessing':
+        specifier: ^2.16.3
+        version: 2.19.1(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0))(@types/three@0.170.0)(react@18.3.1)(three@0.170.0)
+      '@tikgames/game-3d':
+        specifier: workspace:*
+        version: link:../../packages/game-3d
       '@tikgames/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -139,6 +145,12 @@ importers:
       '@react-three/fiber':
         specifier: ^8.17.10
         version: 8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0)
+      '@react-three/postprocessing':
+        specifier: ^2.16.3
+        version: 2.19.1(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0))(@types/three@0.170.0)(react@18.3.1)(three@0.170.0)
+      '@tikgames/game-3d':
+        specifier: workspace:*
+        version: link:../../packages/game-3d
       '@tikgames/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -222,6 +234,40 @@ importers:
       prisma:
         specifier: ^6.1.0
         version: 6.19.3(typescript@5.9.3)
+
+  packages/game-3d:
+    dependencies:
+      '@react-three/drei':
+        specifier: ^9.114.3
+        version: 9.122.0(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0))(@types/react@18.3.31)(@types/three@0.170.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0)(use-sync-external-store@1.6.0(react@18.3.1))
+      '@react-three/fiber':
+        specifier: ^8.17.10
+        version: 8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0)
+      '@react-three/postprocessing':
+        specifier: ^2.16.3
+        version: 2.19.1(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0))(@types/three@0.170.0)(react@18.3.1)(three@0.170.0)
+      '@tikgames/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      postprocessing:
+        specifier: ^6.36.4
+        version: 6.39.5(three@0.170.0)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      three:
+        specifier: ^0.170.0
+        version: 0.170.0
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/three':
+        specifier: ^0.170.0
+        version: 0.170.0
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   packages/shared-types: {}
 
@@ -959,6 +1005,13 @@ packages:
         optional: true
       react-native:
         optional: true
+
+  '@react-three/postprocessing@2.19.1':
+    resolution: {integrity: sha512-7P25LOSToH/I6b3UipNK17IIFlX4FDUmWcaomfwu82+CzhXTOz8Fcc1ZXEZ7vFA/5Fr/2peNlXgXZJvoa+aCdA==}
+    peerDependencies:
+      '@react-three/fiber': ^8.0
+      react: ^18.0
+      three: '>= 0.138.0'
 
   '@remix-run/router@1.23.3':
     resolution: {integrity: sha512-4An71tdz9X8+3sI4Qqqd2LWd9vS39J7sqd9EU4Scw7TJE/qB10Flv/UuqbPVgfQV9XoK8Np6jNquZitnZq5i+Q==}
@@ -2634,6 +2687,12 @@ packages:
       '@types/three': '>=0.134.0'
       three: '>=0.134.0'
 
+  maath@0.6.0:
+    resolution: {integrity: sha512-dSb2xQuP7vDnaYqfoKzlApeRcR2xtN8/f7WV/TMAkBC8552TwTLtOO0JTcSygkYMjNDPoo6V01jTw/aPi4JrMw==}
+    peerDependencies:
+      '@types/three': '>=0.144.0'
+      three: '>=0.144.0'
+
   macos-export-certificate-and-key@2.0.1:
     resolution: {integrity: sha512-2Y2lbgJ1s4iglK7WCRApKhn+52x5xm6wgT+WCHn3bznLeVUACl14aHG5f3zb1o4tUzdLQ7scad5T6YxpvM92Tw==}
     os: [darwin]
@@ -2799,6 +2858,12 @@ packages:
   multer@2.2.0:
     resolution: {integrity: sha512-6rdyFg2kLrMh9Jee7/BMPuV9lEAd7lLW2YUpF9/YxR7njyoUwwQ0ZPh3TaIY50Sw6vlyD2HW3wGOkTS4P79xrQ==}
     engines: {node: '>= 10.16.0'}
+
+  n8ao@1.10.3:
+    resolution: {integrity: sha512-JFRk4WgUAUWO2KdJTqmBT02dP9kG7rE2oQbBy64E9+YwQ3d96KB9QBanqNy/NnYUfUTYU6Z/5OS5t/yLey7+6Q==}
+    peerDependencies:
+      postprocessing: '>=6.30.0'
+      three: '>=0.137'
 
   nan@2.28.0:
     resolution: {integrity: sha512-fTsDz99OTq2sVePhGdp4qQhggZFtKr64ZNVyVajRKtMOkJxYekplBh577PiJB12v/D3s2E5cGtOI45LWp6rnLQ==}
@@ -2976,6 +3041,11 @@ packages:
   postcss@8.5.16:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
+
+  postprocessing@6.39.5:
+    resolution: {integrity: sha512-YmH+t74J2X1lwYjKzK/tgs9C9kqWWPB9JwZiDF5mEf4BdCEAmEFbO8lXBA7NM0/j4g+x6FgD/Tt5/kT7ogbEDA==}
+    peerDependencies:
+      three: '>= 0.168.0 < 0.187.0'
 
   potpack@1.0.2:
     resolution: {integrity: sha512-choctRBIV9EMT9WGAZHn3V7t0Z2pMQyl0EZE6pFc/6ml3ssw7Dlf/oAOvFwjm1HVsqfQN8GfeFyJ+d8tRzqueQ==}
@@ -4707,6 +4777,19 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
+
+  '@react-three/postprocessing@2.19.1(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0))(@types/three@0.170.0)(react@18.3.1)(three@0.170.0)':
+    dependencies:
+      '@react-three/fiber': 8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.170.0)
+      buffer: 6.0.3
+      maath: 0.6.0(@types/three@0.170.0)(three@0.170.0)
+      n8ao: 1.10.3(postprocessing@6.39.5(three@0.170.0))(three@0.170.0)
+      postprocessing: 6.39.5(three@0.170.0)
+      react: 18.3.1
+      three: 0.170.0
+      three-stdlib: 2.36.1(three@0.170.0)
+    transitivePeerDependencies:
+      - '@types/three'
 
   '@remix-run/router@1.23.3': {}
 
@@ -6524,6 +6607,11 @@ snapshots:
       '@types/three': 0.170.0
       three: 0.170.0
 
+  maath@0.6.0(@types/three@0.170.0)(three@0.170.0):
+    dependencies:
+      '@types/three': 0.170.0
+      three: 0.170.0
+
   macos-export-certificate-and-key@2.0.1:
     dependencies:
       bindings: 1.5.0
@@ -6693,6 +6781,11 @@ snapshots:
       busboy: 1.6.0
       concat-stream: 2.0.0
       type-is: 1.6.18
+
+  n8ao@1.10.3(postprocessing@6.39.5(three@0.170.0))(three@0.170.0):
+    dependencies:
+      postprocessing: 6.39.5(three@0.170.0)
+      three: 0.170.0
 
   nan@2.28.0:
     optional: true
@@ -6865,6 +6958,10 @@ snapshots:
       nanoid: 3.3.15
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  postprocessing@6.39.5(three@0.170.0):
+    dependencies:
+      three: 0.170.0
 
   potpack@1.0.2: {}
 

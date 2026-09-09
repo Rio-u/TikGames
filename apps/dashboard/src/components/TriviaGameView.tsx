@@ -6,7 +6,7 @@ import { ChatBox, type ChatItem } from "./ChatBox";
 import { NoWinnerScreen } from "./NoWinnerScreen";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
-import { RoundCountdown } from "./three/Countdown3D";
+import { RoundCountdown } from "@tikgames/game-3d";
 
 export type { ChatItem };
 

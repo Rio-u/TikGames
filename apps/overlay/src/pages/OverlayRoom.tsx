@@ -12,7 +12,8 @@ import type {
   WordRoundState,
   WouldYouRatherState,
 } from "@tikgames/shared-types";
-import { LiveSocketEvents, type GameCountdownPayload } from "@tikgames/shared-types";
+import { applyDesignPrefs } from "@tikgames/game-3d";
+import { LiveSocketEvents, type DesignPrefsPayload, type GameCountdownPayload } from "@tikgames/shared-types";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CapitalsOverlay } from "../components/CapitalsOverlay";
@@ -28,7 +29,7 @@ import { SpinWheelOverlay } from "../components/SpinWheelOverlay";
 import { TriviaOverlay } from "../components/TriviaOverlay";
 import { WordRoundOverlay } from "../components/WordRoundOverlay";
 import { WouldYouRatherOverlay } from "../components/WouldYouRatherOverlay";
-import { PreRollCountdown } from "../components/three/Countdown3D";
+import { PreRollCountdown } from "@tikgames/game-3d";
 import { connectOverlaySocket } from "../lib/socket";
 
 type GameState =
@@ -71,6 +72,11 @@ export default function OverlayRoom() {
     });
     socket.on(LiveSocketEvents.GameCountdown, (payload: GameCountdownPayload) => {
       setCountdownEndsAt(payload.endsAt);
+    });
+    // Sent once on join. Writes through to the same storage the design hooks read, so the
+    // countdown and winner components pick it up without knowing it came from the server.
+    socket.on(LiveSocketEvents.DesignPrefs, (payload: DesignPrefsPayload) => {
+      applyDesignPrefs(payload);
     });
     socket.on("chat:comment", (payload: { viewer: { handle: string; displayName: string }; text: string; at: string }) => {
       // Newest first (prepend) — the shared convention every chat list renders directly, newest

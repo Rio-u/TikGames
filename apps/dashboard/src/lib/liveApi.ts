@@ -531,3 +531,15 @@ export async function getHomepageSettings() {
   const res = await authedFetch("/games/homepage");
   return parseJsonOrThrow(res) as Promise<HomepageSettings>;
 }
+
+/**
+ * Mirrors the picked 3D scenes onto the account. The selection also lives in localStorage for
+ * instant reads, but only the account copy can reach the overlay, which runs on its own origin.
+ */
+export async function saveDesignPrefs(countdownDesignId: string, victoryDesignId: string) {
+  const res = await authedFetch("/auth/design-prefs", {
+    method: "PUT",
+    body: JSON.stringify({ countdownDesignId, victoryDesignId }),
+  });
+  return parseJsonOrThrow(res);
+}

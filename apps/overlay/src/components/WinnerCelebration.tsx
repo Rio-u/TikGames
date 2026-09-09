@@ -1,10 +1,16 @@
 import { motion } from "framer-motion";
 import { PlayerAvatar } from "./PlayerAvatar";
-import { WinnerScene } from "./three/Winner3D";
+import { VictoryScene } from "@tikgames/game-3d";
 
 /**
- * The FINISHED-state payoff moment, shared by every game so winning always feels the same: a 3D
- * cartoon trophy drops into a confetti burst behind the winner's card, which pops in over it.
+ * The FINISHED-state payoff moment, shared by every game so winning always feels the same: the
+ * streamer's chosen victory scene plays behind the winner's card, which pops in over it.
+ *
+ * Which scene that is comes from the registry in @tikgames/game-3d, resolved at render time from
+ * the stored selection — so picking a different design on /3d-designs changes this with no
+ * The scene shows "1" — first place. The winner's *name* is DOM text on the card in front of it,
+ * where it stays crisp and correctly bidi-wrapped; the 3D layer carries the rank, which is the
+ * one number that means the same thing in all twelve games.
  *
  * The trophy, rings, sparkles and confetti are real three.js geometry (`WinnerScene`); the card on
  * top stays DOM. That split is deliberate — the avatar is a real <img> and the name is real text,
@@ -27,17 +33,18 @@ export function WinnerCelebration({
 }) {
   return (
     <div key={handle} className="relative flex w-full flex-col items-center justify-center">
-      {/* The scene is absolutely placed and non-interactive so it never pushes the card around
-          or eats a click meant for the page behind it. */}
-      <div className="pointer-events-none absolute inset-0 -z-0 min-h-[420px]">
-        <WinnerScene />
+      {/* Absolutely placed and non-interactive so it never pushes the card around or eats a
+          click meant for the page behind it. Anchored to the top rather than filling the box:
+          the scenes centre their number, and centring both put the card straight over it. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-0 min-h-[470px]">
+        <VictoryScene value="1" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, scale: 0.6, y: 40 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 240, damping: 18, delay: 0.55 }}
-        className="relative z-10 mt-[190px] rounded-3xl border border-accent/40 bg-canvas-elevated/80 p-8 shadow-glow backdrop-blur-2xl"
+        className="relative z-10 mt-[250px] rounded-3xl border border-accent/40 bg-canvas-elevated/80 p-8 shadow-glow backdrop-blur-2xl"
       >
         <motion.div
           initial={{ scale: 0 }}

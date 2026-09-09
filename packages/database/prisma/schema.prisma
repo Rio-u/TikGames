@@ -104,6 +104,12 @@ model User {
   displayName  String
   avatarUrl    String?
   role         UserRole @default(STREAMER)
+  // Which 3D scenes this streamer picked on /3d-designs. Stored on the account rather than only
+  // in the browser because the overlay is a different origin from the dashboard (a separate
+  // Vercel domain in production), so localStorage cannot cross between them — and the overlay is
+  // the copy that actually goes out on stream.
+  countdownDesignId String?
+  victoryDesignId   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

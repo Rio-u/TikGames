@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { GlowBackground } from "./components/GlowBackground";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -34,6 +35,10 @@ import Tools from "./pages/Tools";
 import TriviaControl from "./pages/TriviaControl";
 import WordRoundControl from "./pages/WordRoundControl";
 import WouldYouRatherControl from "./pages/WouldYouRatherControl";
+
+// The only route that mounts eighteen 3D scenes, and the one a streamer opens once. Loading it
+// on demand keeps that weight off every other page, login included.
+const DesignLab = lazy(() => import("./pages/DesignLab"));
 
 export default function App() {
   return (
@@ -225,6 +230,16 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <LiveSimulate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/3d-designs"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={null}>
+                    <DesignLab />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
