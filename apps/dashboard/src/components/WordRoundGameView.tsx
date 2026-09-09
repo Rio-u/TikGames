@@ -6,6 +6,7 @@ import { ChatBox, type ChatItem } from "./ChatBox";
 import { NoWinnerScreen } from "./NoWinnerScreen";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
+import { RoundCountdown } from "./three/Countdown3D";
 
 export type { ChatItem };
 
@@ -196,7 +197,7 @@ function PuzzleArena({ state }: { state: WordRoundState }) {
         )}
       </AnimatePresence>
 
-      {!revealed && secondsLeft !== null && <p className="text-6xl font-extrabold text-white">{secondsLeft}</p>}
+      {!revealed && <RoundCountdown secondsLeft={secondsLeft} size={150} />}
     </div>
   );
 }

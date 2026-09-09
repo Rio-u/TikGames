@@ -6,6 +6,7 @@ import { Branding } from "./Branding";
 import { ChatStrip, type ChatItem } from "./ChatStrip";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
+import { RoundCountdown } from "./three/Countdown3D";
 
 export type { ChatItem };
 
@@ -170,7 +171,7 @@ function LogoArena({ state }: { state: LogosState }) {
         )}
       </AnimatePresence>
 
-      {!revealed && secondsLeft !== null && <p className="text-4xl font-extrabold text-white">{secondsLeft}</p>}
+      {!revealed && <RoundCountdown secondsLeft={secondsLeft} size={120} />}
     </div>
   );
 }

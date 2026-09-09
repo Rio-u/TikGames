@@ -1,8 +1,10 @@
 import { Play, Sparkle, StopCircle, WarningCircle, X } from "@phosphor-icons/react";
+import { LiveSocketEvents, type GameCountdownPayload } from "@tikgames/shared-types";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { Link } from "react-router-dom";
 import { ACCESS_TOKEN_KEY, useAuth } from "../lib/auth";
+import { PreRollCountdown } from "./three/Countdown3D";
 import {
   beginGameSession,
   createGameConfig,
@@ -108,6 +110,8 @@ export function GameControlShell<TState extends GameState>({
   const [startingGame, setStartingGame] = useState(false);
   const [gameError, setGameError] = useState<string | null>(null);
   const [chatFeed, setChatFeed] = useState<ChatMessage[]>([]);
+  /** ISO end of the 3·2·1 pre-roll, from the server's game:countdown broadcast. */
+  const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   // True while handleStartGame's auto-begin chain is in flight — see there for why.
@@ -127,8 +131,15 @@ export function GameControlShell<TState extends GameState>({
       // the begin() call resolves (they race independently) — drop it so the fullscreen view
       // never flashes the waiting screen we're about to skip past anyway.
       if (suppressWaitingRef.current && isWaitingPhaseRef.current(state as TState)) return;
+      // The pre-roll ends when the game actually starts, not when the local clock says 3s —
+      // the state that follows begin() is the authoritative "we're live now" signal.
+      if (!isWaitingPhaseRef.current(state as TState)) setCountdownEndsAt(null);
       setGameState(state as TState);
       setGameSessionId(state.gameSessionId);
+    });
+
+    socket.on(LiveSocketEvents.GameCountdown, (payload: GameCountdownPayload) => {
+      setCountdownEndsAt(payload.endsAt);
     });
 
     socket.on("chat:comment", (payload: { viewer: { handle: string; displayName: string }; text: string; at: string }) => {
@@ -180,6 +191,7 @@ export function GameControlShell<TState extends GameState>({
       let state = res.state as TState;
       if (autoBegin) {
         const begun = await beginGameSession(res.gameSessionId);
+        setCountdownEndsAt(begun.countdownEndsAt);
         state = begun.state as TState;
       }
       setGameSessionId(res.gameSessionId);
@@ -196,6 +208,7 @@ export function GameControlShell<TState extends GameState>({
     if (!gameSessionId) return;
     try {
       const res = await beginGameSession(gameSessionId);
+      setCountdownEndsAt(res.countdownEndsAt);
       setGameState(res.state as TState);
     } catch (err) {
       setGameError(err instanceof Error ? err.message : "حصل خطأ غير متوقع");
@@ -216,8 +229,12 @@ export function GameControlShell<TState extends GameState>({
 
   if (!user) return null;
 
-  const beginVisible = !!gameState && isWaitingPhase(gameState);
-  const stopVisible = !!gameState && isActivePhase(gameState);
+  // During the pre-roll the game is neither waiting nor running — the server is holding it. Both
+  // buttons would be wrong: "ابدأ" would re-trigger a game that's already starting, and "وقف"
+  // would target a session that hasn't begun. Hide them until the countdown resolves.
+  const counting = countdownEndsAt !== null;
+  const beginVisible = !counting && !!gameState && isWaitingPhase(gameState);
+  const stopVisible = !counting && !!gameState && isActivePhase(gameState);
 
   return (
     <>
@@ -369,7 +386,12 @@ export function GameControlShell<TState extends GameState>({
             </p>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col">{renderGameView(gameState, chatFeed, handleStartGame)}</div>
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {renderGameView(gameState, chatFeed, handleStartGame)}
+            {countdownEndsAt && (
+              <PreRollCountdown endsAt={countdownEndsAt} onDone={() => setCountdownEndsAt(null)} />
+            )}
+          </div>
         </div>
       )}
     </>

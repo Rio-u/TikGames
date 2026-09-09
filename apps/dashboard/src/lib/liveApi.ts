@@ -466,9 +466,15 @@ export async function startGameSession(liveSessionId: string, gameType: GameType
   return parseJsonOrThrow(res) as Promise<{ gameSessionId: string; state: GameState }>;
 }
 
+/**
+ * Asks the server to start the game. Resolves with a 202 as soon as the 3·2·1 pre-roll begins,
+ * *not* when the game is live — `state` is still the pre-begin one, and the real start arrives on
+ * the socket as the next game:state. `countdownEndsAt` mirrors the game:countdown broadcast so a
+ * caller that started the game itself doesn't have to wait for its own socket round trip.
+ */
 export async function beginGameSession(gameSessionId: string) {
   const res = await authedFetch(`/games/session/${gameSessionId}/begin`, { method: "POST" });
-  return parseJsonOrThrow(res) as Promise<{ state: GameState }>;
+  return parseJsonOrThrow(res) as Promise<{ state: GameState; countdownEndsAt: string }>;
 }
 
 export async function stopGameSession(gameSessionId: string) {

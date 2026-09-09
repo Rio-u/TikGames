@@ -6,6 +6,7 @@ import { Branding } from "./Branding";
 import { ChatStrip, type ChatItem } from "./ChatStrip";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
+import { RoundCountdown } from "./three/Countdown3D";
 
 export type { ChatItem };
 
@@ -67,15 +68,17 @@ function QuestionArena({ state }: { state: TriviaState }) {
   const revealed = state.phase === "REVEALED";
 
   return (
-    <div className="relative h-[440px] w-[440px] overflow-hidden rounded-3xl border border-glass-border shadow-glass">
+    <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-glass-border shadow-glass">
       {state.backgroundUrl ? (
         <img src={state.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-accent/10 to-canvas-soft" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+      {/* The artwork already darkens its own middle for text, so this only has to lift
+          contrast a touch — the heavy scrim it replaced buried the frame it sits on. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
 
-      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
+      <div className="absolute inset-x-[12%] bottom-[21%] top-[23%] z-10 flex flex-col gap-3 items-center justify-center text-center">
         <p className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80 backdrop-blur-sm">سؤال {state.round}</p>
 
         <AnimatePresence mode="wait">
@@ -113,7 +116,7 @@ function QuestionArena({ state }: { state: TriviaState }) {
         </AnimatePresence>
 
         {!revealed && secondsLeft !== null && (
-          <p className="text-4xl font-extrabold text-white">{secondsLeft}</p>
+          <RoundCountdown secondsLeft={secondsLeft} size={120} />
         )}
       </div>
     </div>

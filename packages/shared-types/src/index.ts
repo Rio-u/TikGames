@@ -637,7 +637,29 @@ export const LiveSocketEvents = {
   ConnectorAlert: "connector:alert",
   RoomStats: "live:roomStats",
   DrawStroke: "draw:stroke",
+  GameCountdown: "game:countdown",
 } as const;
+
+/**
+ * The 3·2·1 pre-roll that plays before every game, broadcast once by POST
+ * /games/session/:id/begin. The server really does hold `engine.begin()` for this long, so the
+ * countdown is the actual wait rather than an animation running over an already-live round.
+ *
+ * It is its own event rather than a phase on every game's state because a phase would have meant
+ * adding one to all twelve engines and all twelve phase unions for a purely presentational beat
+ * that behaves identically in each. `begin()` is called from exactly one place, which is what
+ * makes a single central broadcast possible.
+ *
+ * `endsAt` is an ISO timestamp on the server clock — the same contract as `phaseEndsAt` — so both
+ * frontends count down against the server, not their own.
+ */
+export interface GameCountdownPayload {
+  gameSessionId: string;
+  endsAt: string;
+}
+
+/** How long that pre-roll runs. Shared so the API and both frontends can't drift apart. */
+export const GAME_PRE_ROLL_MS = 3000;
 
 // --- Platform product catalog ------------------------------------------------------
 //

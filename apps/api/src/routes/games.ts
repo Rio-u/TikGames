@@ -1,4 +1,5 @@
 import {
+  GAME_PRE_ROLL_MS,
   LiveSocketEvents,
   type CapitalsSettings,
   type CapitalsState,
@@ -731,25 +732,83 @@ router.post(
   }),
 );
 
+/**
+ * Whether engine.begin() would succeed, decided from the public state rather than by calling it.
+ *
+ * The pre-roll has to answer this *before* it starts counting — a countdown that plays and then
+ * quietly does nothing is worse than an immediate 400 — but begin() both checks and starts, so it
+ * can't be used to ask. Every engine's guard turns out to be the same two lines, and both are
+ * already visible in getState():
+ *
+ *   - the phase must still be the waiting one, and
+ *   - the three roster games need at least two players.
+ *
+ * Those three are exactly the ones whose waiting phase is WAITING_FOR_PLAYERS (Musical Chairs,
+ * Spin Wheel, Maze) — the other nine use WAITING_TO_START and have no roster minimum — so the
+ * phase name alone selects the right rule. Derived here rather than as a canBegin() on all twelve
+ * engines: one place to keep in step with begin(), not twelve.
+ */
+function canBegin(state: { phase: string; players?: readonly unknown[] }): boolean {
+  if (state.phase === "WAITING_FOR_PLAYERS") return (state.players?.length ?? 0) >= 2;
+  return state.phase === "WAITING_TO_START";
+}
+
 router.post(
   "/session/:id/begin",
   requireAuth,
   asyncHandler(async (req: AuthedRequest, res) => {
-    if (!(await ownsGameSession(req.userId!, req.params.id))) {
+    // Bound once: this handler reads the id five times across two async hops and a timer, and the
+    // route only matches when :id is present.
+    const gameSessionId = req.params.id!;
+    if (!(await ownsGameSession(req.userId!, gameSessionId))) {
       res.status(404).json({ error: "مفيش لعبة شغالة بالـ id ده" });
       return;
     }
-    const engine = activeEngines.get(req.params.id);
+    const engine = activeEngines.get(gameSessionId);
     if (!engine) {
       res.status(404).json({ error: "مفيش لعبة شغالة بالـ id ده" });
       return;
     }
-    const started = engine.begin();
-    if (!started) {
+    // Preconditions are checked up front — against the engine, before anything is broadcast —
+    // so a game that can't start (too few players, already running) still fails fast with a 400
+    // instead of showing a countdown and then silently doing nothing.
+    if (!canBegin(engine.getState())) {
       res.status(400).json({ error: "مقدرش يبدأ اللعبة (محتاجة لاعبين أكتر، أو بدأت بالفعل)" });
       return;
     }
-    res.json({ state: engine.getState() });
+
+    const gameSession = await prisma.gameSession.findUnique({
+      where: { id: gameSessionId },
+      select: { liveSessionId: true },
+    });
+    if (!gameSession) {
+      res.status(404).json({ error: "مفيش لعبة شغالة بالـ id ده" });
+      return;
+    }
+
+    // The 3·2·1 pre-roll. This is the only place engine.begin() is called from, which is what
+    // lets one broadcast cover all twelve games without a per-engine phase.
+    const endsAt = new Date(Date.now() + GAME_PRE_ROLL_MS);
+    broadcastToLive(gameSession.liveSessionId, LiveSocketEvents.GameCountdown, {
+      gameSessionId,
+      endsAt: endsAt.toISOString(),
+    });
+
+    setTimeout(() => {
+      // The streamer can hit "وقف اللعبة" — or start a different game — inside the pre-roll
+      // window. Re-read the registry rather than closing over `engine`, so a session that was
+      // torn down (or replaced) in those 3 seconds is never resurrected here.
+      if (activeEngines.get(gameSessionId) !== engine) return;
+      // Belt and braces: if the state moved under us anyway, re-broadcast so the clients drop
+      // the countdown instead of sitting on it forever.
+      if (!engine.begin()) {
+        broadcastToLive(gameSession.liveSessionId, LiveSocketEvents.GameState, engine.getState());
+      }
+    }, GAME_PRE_ROLL_MS);
+
+    // 202: accepted, not yet started. The state returned is still the pre-begin one — clients
+    // render the countdown off the broadcast above and wait for the game:state that follows.
+    res.status(202).json({ state: engine.getState(), countdownEndsAt: endsAt.toISOString() });
   }),
 );
 
