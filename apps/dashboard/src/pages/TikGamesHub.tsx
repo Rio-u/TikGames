@@ -1,26 +1,18 @@
-import { ArrowRight, GameController, Star, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, Broadcast, GameController, Star, WarningCircle } from "@phosphor-icons/react";
 import { motion, type Variants } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { DashboardHeader } from "../components/DashboardHeader";
-import { Container } from "../components/Container";
+import { ButtonLink } from "../components/Button";
+import { DashboardShell } from "../components/DashboardShell";
 import { GameCard } from "../components/GameCard";
 import { Reveal } from "../components/Reveal";
 import { GAMES, type GameDefinition } from "../data/games";
-import { useAuth } from "../lib/auth";
 import { mergeGameContent } from "../lib/gameContent";
 import { staggerContainer, viewportOnce } from "../lib/motion";
 import { useDisabledGames } from "../lib/useDisabledGames";
 import { useGameContent } from "../lib/useGameContent";
 import { useHomepageSettings } from "../lib/useHomepageSettings";
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 5) return "مساء الخير";
-  if (hour < 12) return "صباح الخير";
-  if (hour < 18) return "يومك سعيد";
-  return "مساء الخير";
-}
+import { useLiveSession } from "../lib/useLiveSession";
 
 const featuredCardVariant: Variants = {
   hidden: { opacity: 0, y: 28, scale: 0.9 },
@@ -114,36 +106,60 @@ function FeaturedGameCard({ game, disabledReason }: { game: GameDefinition; disa
   return content;
 }
 
-export default function Dashboard() {
-  const { user } = useAuth();
-  if (!user) return null;
-
-  const firstName = user.displayName.split(" ")[0];
+/**
+ * TikGames as a *product page inside the platform* — the game library that used to be the whole
+ * dashboard. The platform overview now lives at /dashboard; this page owns only games.
+ */
+export default function TikGamesHub() {
   const gameContent = useGameContent();
-  const availableGames = GAMES.filter((g) => g.route).map((g) => mergeGameContent(g, gameContent.get(g.id)));
-  const comingSoonGames = GAMES.filter((g) => !g.route).map((g) => mergeGameContent(g, gameContent.get(g.id)));
   const disabledGames = useDisabledGames();
   const homepage = useHomepageSettings();
+  const { liveSession } = useLiveSession();
+
+  const availableGames = GAMES.filter((g) => g.route).map((g) => mergeGameContent(g, gameContent.get(g.id)));
+  const comingSoonGames = GAMES.filter((g) => !g.route).map((g) => mergeGameContent(g, gameContent.get(g.id)));
   const allGamesById = new Map([...availableGames, ...comingSoonGames].map((g) => [g.id, g]));
-  const featuredGames = homepage.featuredGameTypes.map((id) => allGamesById.get(id)).filter((g): g is GameDefinition => !!g);
+  const featuredGames = homepage.featuredGameTypes
+    .map((id) => allGamesById.get(id))
+    .filter((g): g is GameDefinition => !!g);
+
+  const liveReady = !!liveSession && liveSession.status !== "ENDED";
 
   return (
-    <div className="min-h-dvh">
-      <DashboardHeader />
-
-      <Container className="space-y-10 py-10">
-        <Reveal>
-          <h1 className="text-2xl font-bold sm:text-3xl">
-            {getGreeting()}، {firstName} 👋
-          </h1>
-        </Reveal>
+    <DashboardShell
+      title="TikGames"
+      description="اختار لعبة، اظبط إعداداتها، وشغّلها على لايفك. المشاهدين بيلعبوا من الشات — من غير حساب ولا تحميل."
+      actions={
+        <ButtonLink to="/tools" variant="secondary" size="md" magnetic={false}>
+          باقي الأدوات
+        </ButtonLink>
+      }
+    >
+      <div className="space-y-10">
+        {!liveReady && (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-amber-400/25 bg-amber-500/10 p-5">
+            <div className="flex items-center gap-3">
+              <Broadcast size={22} weight="fill" className="text-amber-300" />
+              <div>
+                <p className="text-sm font-semibold">مفيش لايف شغال</p>
+                <p className="text-xs text-ink-muted">
+                  تقدر تتفرج على المكتبة، بس تشغيل أي لعبة محتاج جلسة لايف نشطة الأول.
+                </p>
+              </div>
+            </div>
+            <ButtonLink to="/live/connect" size="md">
+              ابدأ لايف
+              <ArrowRight size={15} weight="bold" className="rtl:rotate-180" />
+            </ButtonLink>
+          </div>
+        )}
 
         {featuredGames.length > 0 && (
-          <div>
+          <section>
             <Reveal>
               <div className="mb-5 flex items-center gap-2">
                 <Star size={22} className="text-amber-300" weight="fill" />
-                <h2 className="text-xl font-bold sm:text-2xl">{homepage.heroTitle || "الألعاب المميزة"}</h2>
+                <h2 className="text-xl font-bold">{homepage.heroTitle || "الألعاب المميزة"}</h2>
               </div>
             </Reveal>
 
@@ -163,14 +179,17 @@ export default function Dashboard() {
                 </motion.div>
               ))}
             </motion.div>
-          </div>
+          </section>
         )}
 
-        <div>
+        <section>
           <Reveal>
             <div className="mb-5 flex items-center gap-2">
               <GameController size={22} className="text-accent" weight="fill" />
               <h2 className="text-xl font-bold">كل الألعاب</h2>
+              <span className="rounded-full bg-glass px-2.5 py-0.5 text-xs text-ink-muted">
+                {availableGames.length}
+              </span>
             </div>
           </Reveal>
 
@@ -209,8 +228,8 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-        </div>
-      </Container>
-    </div>
+        </section>
+      </div>
+    </DashboardShell>
   );
 }

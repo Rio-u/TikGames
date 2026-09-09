@@ -122,6 +122,7 @@ model User {
   viewerRankings       ViewerRanking[]
   createdRedemptionCodes  RedemptionCode[]        @relation("RedemptionCodeCreator")
   redeemedRedemptionCodes RedemptionCode[]        @relation("RedemptionCodeRedeemer")
+  overlayWidgetConfigs    OverlayWidgetConfig[]
 }
 
 model RefreshToken {
@@ -365,6 +366,26 @@ model HomepageSettings {
   featuredGameTypes GameType[]
   updatedById       String?    @db.ObjectId
   updatedAt         DateTime   @updatedAt
+}
+
+/// One streamer's customisation of one overlay widget (colours, size, labels, ...).
+/// Sparse by design: a row exists only for a widget the streamer actually edited, and the shape
+/// of `settings` is validated against that widget's `fields` in OVERLAY_WIDGET_CATALOG rather
+/// than by a column per option — a new field in the catalog must not require a migration.
+model OverlayWidgetConfig {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String @db.ObjectId
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Matches OverlayWidgetId in shared-types. Kept as a String, not an enum, so adding a widget
+  /// is a catalog edit rather than a schema migration + db push.
+  widgetId String
+
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, widgetId])
+  @@index([userId])
 }
 
 // Registration-method kill switch, admin-controlled — same fail-open precedent as GameToggle (a

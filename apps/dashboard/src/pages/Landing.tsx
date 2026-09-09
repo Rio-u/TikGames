@@ -1,16 +1,23 @@
 import {
   ArrowRight,
+  BellRinging,
   Broadcast,
+  ChartLineUp,
   ChatCircleDots,
+  GameController,
   Gauge,
   Lightning,
+  Monitor,
   Play,
   Plus,
   ShieldCheck,
   Sparkle,
+  SquaresFour,
+  Trophy,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { lazy, Suspense, useState } from "react";
+import { Link } from "react-router-dom";
 import { ButtonAnchor, ButtonLink } from "../components/Button";
 import { Container } from "../components/Container";
 import { CursorGlow } from "../components/CursorGlow";
@@ -29,6 +36,54 @@ const GLSLHills = lazy(() => import("../components/GLSLHills").then((m) => ({ de
 const GamesScene = lazy(() =>
   import("../components/GamesScene").then((m) => ({ default: m.GamesScene })),
 );
+
+/** The ecosystem grid (§29). Status here mirrors PRODUCT_CATALOG in shared-types — a product
+ *  that isn't built yet says so, on the marketing page too, not just inside the app. */
+const ECOSYSTEM = [
+  {
+    icon: GameController,
+    name: "TikGames",
+    desc: "ألعاب تفاعلية بتتلعب من كومنتات اللايف.",
+    status: "متاح" as const,
+    to: "/tikgames",
+  },
+  {
+    icon: Monitor,
+    name: "الأوفرلايز",
+    desc: "طبقة شفافة جاهزة لـ OBS بتعرض الأداة الشغالة.",
+    status: "متاح" as const,
+  },
+  {
+    icon: Trophy,
+    name: "ترتيب المشاهدين",
+    desc: "نقاط تراكمية لأنشط ناس في قناتك.",
+    status: "متاح" as const,
+  },
+  {
+    icon: ChartLineUp,
+    name: "تحليلات اللايف",
+    desc: "مدة البث، المشاركين، ومعدل التفاعل.",
+    status: "تجريبي" as const,
+  },
+  {
+    icon: BellRinging,
+    name: "تنبيهات اللايف",
+    desc: "رد فعل على الهدايا والمتابعات واللايكات.",
+    status: "قريباً" as const,
+  },
+  {
+    icon: SquaresFour,
+    name: "widgets الاستريم",
+    desc: "عدّادات وأهداف على الشاشة بتتحدث لحظياً.",
+    status: "قريباً" as const,
+  },
+];
+
+const STATUS_CHIP: Record<"متاح" | "تجريبي" | "قريباً", string> = {
+  متاح: "bg-emerald-500/15 text-emerald-300",
+  تجريبي: "bg-amber-500/15 text-amber-300",
+  قريباً: "bg-glass text-ink-muted",
+};
 
 const STEPS = [
   {
@@ -237,11 +292,11 @@ export default function Landing() {
             transition={{ delay: 0.1 }}
             className="text-balance mx-auto max-w-3xl text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl md:text-6xl"
           >
-            حوّل تعليقات لايفك على{" "}
+            حوّل لايفك على{" "}
             <span className="bg-gradient-animated bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               TikTok
             </span>{" "}
-            لألعاب تفاعلية حية
+            لتجربة تفاعلية
           </motion.h1>
 
           <motion.p
@@ -251,8 +306,8 @@ export default function Landing() {
             transition={{ delay: 0.2 }}
             className="mx-auto mt-6 max-w-xl text-balance text-base text-ink-muted sm:text-lg"
           >
-            منصة Overlay جاهزة لـ OBS — مشاهدينك يتفاعلوا بالكومنتات، وإنت تشغّل اللعبة على الشاشة
-            لحظياً من غير أي تعقيد تقني.
+            منظومة أدوات كاملة لصنّاع محتوى TikTok Live — ألعاب، أوفرلايز، ترتيب مشاهدين
+            وتحليلات، كلها بتشتغل على نفس البث ومن نفس لوحة التحكم.
           </motion.p>
 
           <motion.div
@@ -263,12 +318,12 @@ export default function Landing() {
             className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
             <ButtonLink to="/register" size="lg">
-              جرّب مجاناً الآن
+              ابدأ مجاناً
               <ArrowRight size={18} weight="bold" className="rtl:rotate-180" />
             </ButtonLink>
-            <ButtonAnchor href="#games" variant="secondary" size="lg" magnetic={false}>
+            <ButtonAnchor href="#ecosystem" variant="secondary" size="lg" magnetic={false}>
               <Play size={16} weight="fill" />
-              شوف الألعاب
+              استكشف الأدوات
             </ButtonAnchor>
           </motion.div>
 
@@ -311,15 +366,16 @@ export default function Landing() {
         </Container>
       </section>
 
-      <section id="games" className="relative scroll-mt-24 px-4 py-24 sm:py-32">
-        <Suspense fallback={null}>
-          <GamesScene className="pointer-events-none absolute inset-x-0 top-10 -z-[5] hidden h-[420px] w-full md:block" />
-        </Suspense>
+      {/* --- Product ecosystem (§29) — the platform, before any single product ---------- */}
+      <section id="ecosystem" className="scroll-mt-24 px-4 py-24 sm:py-32">
         <Container>
           <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="text-balance text-3xl font-bold sm:text-4xl">مكتبة الألعاب</h2>
+            <h2 className="text-balance text-3xl font-bold sm:text-4xl">
+              منصة واحدة، أدوات متعددة
+            </h2>
             <p className="mt-4 text-ink-muted">
-              {GAMES.length} ألعاب جاهزة تتشغّل من لوحة التحكم، وكل واحدة قابلة للتخصيص.
+              كل أداة بتستهلك نفس أحداث اللايف الموحّدة — يعني تقدر تشغّل أكتر من واحدة على نفس
+              البث، وتتحكم فيهم كلهم من مكان واحد.
             </p>
           </Reveal>
 
@@ -330,7 +386,80 @@ export default function Landing() {
             variants={staggerContainer}
             className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {GAMES.map((game) => (
+            {ECOSYSTEM.map((tool) => {
+              const card = (
+                <Tilt strength={6}>
+                  <GlassCard className="h-full p-6">
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-primary/25 to-accent/10 text-accent shadow-glow-sm">
+                        <tool.icon size={20} weight="duotone" />
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_CHIP[tool.status]}`}
+                      >
+                        {tool.status}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{tool.name}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-ink-muted">{tool.desc}</p>
+                    {tool.to && (
+                      <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
+                        اعرف أكتر
+                        <ArrowRight size={13} weight="bold" className="rtl:rotate-180" />
+                      </span>
+                    )}
+                  </GlassCard>
+                </Tilt>
+              );
+
+              return (
+                <motion.div key={tool.name} variants={fadeUp}>
+                  {tool.to ? (
+                    <Link to={tool.to} className="block h-full">
+                      {card}
+                    </Link>
+                  ) : (
+                    card
+                  )}
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </Container>
+      </section>
+
+      {/* --- TikGames flagship section (§6) -------------------------------------------- */}
+      <section id="games" className="relative scroll-mt-24 px-4 py-24 sm:py-32">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 -z-10 h-full bg-gradient-to-b from-primary/8 via-transparent to-transparent"
+        />
+        <Suspense fallback={null}>
+          <GamesScene className="pointer-events-none absolute inset-x-0 top-10 -z-[5] hidden h-[420px] w-full md:block" />
+        </Suspense>
+        <Container>
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-semibold text-accent">
+              <GameController size={14} weight="fill" />
+              المنتج الرئيسي
+            </span>
+            <h2 className="text-balance text-3xl font-bold sm:text-4xl">
+              خلي شات لايفك قابل للّعب
+            </h2>
+            <p className="mt-4 text-ink-muted">
+              {GAMES.length} لعبة تفاعلية بتتلعب بالكومنتات — المشاهد بيشارك من غير حساب ولا
+              تحميل، وإنت بتتحكم من لوحة التحكم والنتيجة بتتعرض على الاستريم.
+            </p>
+          </Reveal>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={viewportOnce}
+            variants={staggerContainer}
+            className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {GAMES.slice(0, 6).map((game) => (
               <motion.div key={game.id} variants={fadeUp}>
                 <Tilt strength={6}>
                   <GameCard game={game} />
@@ -338,6 +467,16 @@ export default function Landing() {
               </motion.div>
             ))}
           </motion.div>
+
+          <Reveal className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <ButtonLink to="/tikgames" size="lg">
+              استكشف TikGames
+              <ArrowRight size={18} weight="bold" className="rtl:rotate-180" />
+            </ButtonLink>
+            <ButtonLink to="/tikgames" variant="secondary" size="lg" magnetic={false}>
+              شوف كل الـ {GAMES.length} لعبة
+            </ButtonLink>
+          </Reveal>
         </Container>
       </section>
 

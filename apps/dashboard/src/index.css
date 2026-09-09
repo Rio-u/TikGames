@@ -113,6 +113,70 @@
   }
 }
 
+@layer components {
+  /* The default range control is a grey groove with a browser-blue thumb that ignores the whole
+     design system. Chrome/Edge and Firefox need separate pseudo-elements, and neither inherits
+     from the other, hence the duplication. */
+  .range-input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 22px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .range-input::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 12%);
+  }
+
+  .range-input::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    border: 2px solid rgb(255 255 255 / 85%);
+    box-shadow: 0 2px 8px rgb(124 58 237 / 45%);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .range-input:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 14px rgb(168 85 247 / 65%);
+  }
+
+  .range-input:active::-webkit-slider-thumb {
+    transform: scale(0.96);
+  }
+
+  .range-input::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 12%);
+  }
+
+  .range-input::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    border: 2px solid rgb(255 255 255 / 85%);
+    box-shadow: 0 2px 8px rgb(124 58 237 / 45%);
+  }
+
+  .range-input:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

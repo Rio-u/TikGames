@@ -3,10 +3,13 @@ import { createServer } from "node:http";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import adminRouter, { UPLOAD_ROOT } from "./routes/admin.js";
+import analyticsRouter from "./routes/analytics.js";
 import authRouter from "./routes/auth.js";
 import gamesRouter from "./routes/games.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import liveRouter from "./routes/live.js";
+import overlaysRouter from "./routes/overlays.js";
+import productsRouter from "./routes/products.js";
 import { setupSocketServer } from "./realtime/socket.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -29,7 +32,10 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth", authRouter);
 app.use("/live", liveRouter);
+app.use("/products", productsRouter);
+app.use("/overlays", overlaysRouter);
 app.use("/games", gamesRouter);
+app.use("/analytics", analyticsRouter);
 app.use("/leaderboard", leaderboardRouter);
 app.use("/uploads", express.static(UPLOAD_ROOT));
 app.use("/admin", adminRouter);
@@ -54,6 +60,6 @@ httpServer.listen(PORT, () => {
   console.log(`[api] TikGames API listening on http://localhost:${PORT}`);
   console.log("[api] Auth is live: /auth/register, /auth/login, /auth/refresh, /auth/me");
   console.log(
-    "[api] Live + games routes mounted: /live, /games, /leaderboard, /uploads, /admin. Socket.io namespaces: /internal, /overlay, /dashboard",
+    "[api] Platform routes mounted: /live, /products, /games, /analytics, /leaderboard, /uploads, /admin. Socket.io namespaces: /internal, /overlay, /dashboard",
   );
 });

@@ -2,6 +2,7 @@ import {
   INTERNAL_NAMESPACE,
   InternalSocketEvents,
   LiveSocketEvents,
+  WidgetSocketEvents,
   type LiveAlert,
   type LiveEvent,
   type LiveRoomStats,
@@ -13,6 +14,7 @@ import { notifyDiscord } from "../lib/discordWebhook.js";
 import { verifyAccessToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
 import { handleLiveEvent } from "./commentIngestion.js";
+import { clearLiveStats, snapshotFor } from "./liveStats.js";
 import {
   activeEngines,
   broadcastToLive,
@@ -95,6 +97,9 @@ export function setupSocketServer(httpServer: HttpServer): Server {
       } catch (err) {
         console.error("[api] failed to persist live status:", err);
       }
+      // An ended live's widget tallies are meaningless to the next stream, and a pending timer
+      // firing into a dead room would be worse than meaningless.
+      if (status.status === "ENDED") clearLiveStats(status.liveSessionId);
       broadcastToLive(status.liveSessionId, "live:status", status);
     });
 
@@ -163,6 +168,11 @@ export function setupSocketServer(httpServer: HttpServer): Server {
       const engine = activeEngines.get(gameSessionId);
       if (engine) socket.emit(LiveSocketEvents.GameState, engine.getState());
     }
+
+    // Widgets are added to OBS at arbitrary times, often long after the gifts they should be
+    // showing already arrived. Without this snapshot a leaderboard added mid-stream starts empty
+    // and stays empty until the next gift — which reads as broken.
+    socket.emit(WidgetSocketEvents.Snapshot, snapshotFor(liveSessionId));
   });
 
   // --- dashboard: authenticated streamer monitoring ---------------------------------

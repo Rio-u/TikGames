@@ -26,6 +26,21 @@ export interface LiveGiftEvent {
   viewer: NormalizedViewer;
   giftId: string;
   repeatCount: number;
+  /** Display name of the gift ("Rose", "Galaxy", ...). Null when TikTok didn't send one — this
+   *  is an undocumented payload, so every enrichment field here is optional by construction. */
+  giftName: string | null;
+  /** Diamond value of ONE unit of this gift. Multiply by repeatCount for the transaction total.
+   *  0 when unknown — never guess a value, a wrong coin count corrupts every leaderboard downstream. */
+  coins: number;
+  imageUrl: string | null;
+  /**
+   * Streakable gifts (roses and friends) fire an event per tick while the viewer holds the
+   * button, each one repeating the running total. Counting every tick multiplies a single
+   * 10-rose streak into 55 roses. Only a tick with this flag set is the final, authoritative
+   * one; non-streakable gifts arrive already finished. Consumers MUST ignore unfinished ticks
+   * when totalling, and may use them for live animation only.
+   */
+  isStreakFinished: boolean;
   at: string;
 }
 
@@ -623,3 +638,563 @@ export const LiveSocketEvents = {
   RoomStats: "live:roomStats",
   DrawStroke: "draw:stroke",
 } as const;
+
+// --- Platform product catalog ------------------------------------------------------
+//
+// The platform is the creator's operating system for their live; a *product* is one
+// application running inside it. TikGames is the first — it is deliberately NOT special-cased
+// anywhere in this contract, so the second product (alerts, widgets, ...) plugs in by adding a
+// catalog entry and its own routes, not by touching the platform shell.
+
+export type ProductId =
+  | "TIKGAMES"
+  | "ALERTS"
+  | "WIDGETS"
+  | "OVERLAYS"
+  | "LEADERBOARDS"
+  | "ANALYTICS";
+
+/** AVAILABLE = shipped and usable. BETA = usable, rough edges. COMING_SOON = catalog entry only;
+ *  never let one of these render as if it works (see the "no fake functionality" rule). */
+export type ProductStatus = "AVAILABLE" | "BETA" | "COMING_SOON";
+
+export type ProductCategory = "ENGAGEMENT" | "OVERLAY" | "INSIGHTS" | "AUTOMATION";
+
+export interface ProductDefinition {
+  id: ProductId;
+  nameAr: string;
+  /** One short line for the card — what it does, not how. */
+  taglineAr: string;
+  descriptionAr: string;
+  status: ProductStatus;
+  category: ProductCategory;
+  /** Key into the dashboard's own icon map — shared-types stays framework-free, so no JSX here. */
+  icon: string;
+  /** Tailwind gradient stops used for the product's card/badge accent. */
+  gradient: string;
+  /** In-app route once signed in. Undefined for COMING_SOON entries. */
+  dashboardRoute?: string;
+  /** Public marketing page, if the product has one of its own. */
+  marketingRoute?: string;
+  /** Whether the product needs an active LiveSession before it can do anything. */
+  requiresLive: boolean;
+}
+
+/** Per-user view of one product: the catalog entry plus whether *this* creator can open it. */
+export interface ProductAccess extends ProductDefinition {
+  unlocked: boolean;
+  /** Arabic, user-facing. Null when unlocked. */
+  lockedReasonAr: string | null;
+}
+
+export const PRODUCT_CATALOG: ProductDefinition[] = [
+  {
+    id: "TIKGAMES",
+    nameAr: "TikGames",
+    taglineAr: "حوّل شات لايفك للعبة جماعية.",
+    descriptionAr:
+      "مكتبة ألعاب تفاعلية بتتلعب من كومنتات اللايف مباشرة — المشاهد بيشارك من غير ما يعمل حساب أو ينزّل حاجة، وإنت بتتحكم من الداشبورد والنتيجة بتتعرض على الاستريم.",
+    status: "AVAILABLE",
+    category: "ENGAGEMENT",
+    icon: "games",
+    gradient: "from-violet-500/35 via-purple-600/20 to-canvas-elevated",
+    // The in-app hub and the public marketing page are two different pages with two different
+    // audiences, so they get two different paths — /tikgames sells it, /dashboard/tikgames runs it.
+    dashboardRoute: "/dashboard/tikgames",
+    marketingRoute: "/tikgames",
+    requiresLive: true,
+  },
+  {
+    id: "OVERLAYS",
+    nameAr: "الأوفرلايز",
+    taglineAr: "طبقة شفافة جاهزة لـ OBS.",
+    descriptionAr:
+      "رابط Browser Source واحد بيعرض المنتج الشغال دلوقتي على الاستريم، محمي بتوكن ومربوط لحظياً بالسيرفر.",
+    status: "AVAILABLE",
+    category: "OVERLAY",
+    icon: "overlay",
+    gradient: "from-sky-500/35 via-cyan-600/20 to-canvas-elevated",
+    dashboardRoute: "/overlays",
+    requiresLive: true,
+  },
+  {
+    id: "LEADERBOARDS",
+    nameAr: "ترتيب المشاهدين",
+    taglineAr: "تتبّع أنشط ناس في قناتك.",
+    descriptionAr:
+      "نقاط تراكمية لكل مشاهد عبر كل اللايفات والألعاب، عشان تكافئ اللي بيلعب باستمرار مش اللي كسب مرة واحدة.",
+    status: "AVAILABLE",
+    category: "INSIGHTS",
+    icon: "trophy",
+    gradient: "from-amber-500/35 via-orange-600/20 to-canvas-elevated",
+    dashboardRoute: "/leaderboard",
+    requiresLive: false,
+  },
+  {
+    id: "ANALYTICS",
+    nameAr: "تحليلات اللايف",
+    taglineAr: "افهم إيه اللي بيشتغل فعلاً.",
+    descriptionAr:
+      "مدة اللايفات، عدد المشاركين، الألعاب اللي خلصت، ومعدل التفاعل — بيانات حقيقية من جلساتك إنت، مش أرقام تجريبية.",
+    status: "BETA",
+    category: "INSIGHTS",
+    icon: "chart",
+    gradient: "from-emerald-500/35 via-teal-600/20 to-canvas-elevated",
+    dashboardRoute: "/analytics",
+    requiresLive: false,
+  },
+  {
+    id: "ALERTS",
+    nameAr: "تنبيهات اللايف",
+    taglineAr: "رد فعل على الهدايا والمتابعات.",
+    descriptionAr:
+      "تنبيهات متحركة على الاستريم لما حد يبعت هدية أو يتابعك أو يعمل لايك — بتستهلك نفس أحداث اللايف الموحّدة اللي الألعاب بتستهلكها.",
+    status: "COMING_SOON",
+    category: "ENGAGEMENT",
+    icon: "bell",
+    gradient: "from-rose-500/35 via-pink-600/20 to-canvas-elevated",
+    requiresLive: true,
+  },
+  {
+    id: "WIDGETS",
+    nameAr: "widgets الاستريم",
+    taglineAr: "عدّادات وأهداف على الشاشة.",
+    descriptionAr:
+      "عناصر صغيرة تحطها في مشهد OBS — عدّاد متابعين، هدف هدايا، آخر داعم — بتتحدث لحظياً زي الأوفرلاي بالظبط.",
+    status: "COMING_SOON",
+    category: "OVERLAY",
+    icon: "widget",
+    gradient: "from-indigo-500/35 via-blue-600/20 to-canvas-elevated",
+    requiresLive: true,
+  },
+];
+
+export function getProduct(id: ProductId): ProductDefinition | undefined {
+  return PRODUCT_CATALOG.find((p) => p.id === id);
+}
+
+// --- Overlay widget gallery --------------------------------------------------------
+//
+// The game overlay (/o/:token) renders whichever game is running. These widgets are the other
+// half: small, independent browser sources the streamer positions separately in OBS, each with
+// its own URL. Splitting them per-widget instead of one big overlay is what makes free
+// positioning possible — a single combined layer can only ever be placed as one rectangle.
+
+export type OverlayWidgetId =
+  | "CHAT"
+  | "GIFT_FEED"
+  | "TOP_GIFTERS"
+  | "TOP_LIKERS"
+  | "VIEWER_COUNT"
+  | "LIKE_FOUNTAIN"
+  | "GIFT_CANNON"
+  | "GIFT_FIREWORK"
+  | "GIFT_GOAL"
+  | "COIN_JAR"
+  | "RANKING"
+  | "TIMER"
+  | "SOCIAL_ROTATOR"
+  | "LAST_FOLLOWER";
+
+export type OverlayWidgetCategory = "CHAT" | "GIFTS" | "RANKING" | "EFFECTS" | "UTILITY";
+
+/** What live data a widget consumes. Used by the gallery to warn "this needs a running live"
+ *  before the streamer copies a URL that would render an empty box on stream. */
+export type OverlayWidgetFeed = "COMMENTS" | "GIFTS" | "LIKES" | "FOLLOWS" | "ROOM" | "POINTS" | "NONE";
+
+export type OverlayFieldType = "COLOR" | "NUMBER" | "TEXT" | "TOGGLE" | "SELECT";
+
+export interface OverlayField {
+  key: string;
+  labelAr: string;
+  type: OverlayFieldType;
+  default: string | number | boolean;
+  min?: number;
+  max?: number;
+  /** SELECT only. */
+  options?: { value: string; labelAr: string }[];
+  hintAr?: string;
+}
+
+export interface OverlayWidgetDefinition {
+  id: OverlayWidgetId;
+  nameAr: string;
+  descriptionAr: string;
+  category: OverlayWidgetCategory;
+  feed: OverlayWidgetFeed;
+  /** Suggested OBS browser-source size, shown on the card so nobody has to guess. */
+  recommendedSize: { width: number; height: number };
+  /** Customisable fields, rendered generically by the dashboard's customise dialog. */
+  fields: OverlayField[];
+  /** Whether the "Test" button can fake this widget's data. Config-only widgets can't. */
+  testable: boolean;
+  /** Widgets that accumulate their own counter and can be zeroed independently (the jar). Shows
+   *  a reset control on the gallery card and enables POST /overlays/reset/:widgetId. */
+  resettable?: boolean;
+  noteAr?: string;
+}
+
+/** Fields nearly every widget shares. Spread first so a widget's own fields come after them. */
+const COMMON_FIELDS: OverlayField[] = [
+  { key: "accent", labelAr: "اللون الأساسي", type: "COLOR", default: "#a855f7" },
+  { key: "textColor", labelAr: "لون النص", type: "COLOR", default: "#ffffff" },
+  { key: "bgOpacity", labelAr: "شفافية الخلفية", type: "NUMBER", default: 35, min: 0, max: 100, hintAr: "0 = شفاف تماماً" },
+  { key: "fontSize", labelAr: "حجم الخط", type: "NUMBER", default: 18, min: 10, max: 64 },
+  {
+    key: "font",
+    labelAr: "الخط",
+    type: "SELECT",
+    default: "cairo",
+    options: [
+      { value: "cairo", labelAr: "Cairo (عربي)" },
+      { value: "tajawal", labelAr: "Tajawal (عربي)" },
+      { value: "system", labelAr: "خط النظام" },
+    ],
+  },
+];
+
+export const OVERLAY_WIDGET_CATALOG: OverlayWidgetDefinition[] = [
+  {
+    id: "CHAT",
+    nameAr: "الشات",
+    descriptionAr: "بيعرض كومنتات اللايف أول بأول على الاستريم.",
+    category: "CHAT",
+    feed: "COMMENTS",
+    recommendedSize: { width: 420, height: 640 },
+    testable: true,
+    noteAr: "خلي عرض الـ Browser Source ضيّق (حوالي 400px) عشان السطور ماتتفردش.",
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "maxMessages", labelAr: "أقصى عدد رسائل", type: "NUMBER", default: 12, min: 3, max: 40 },
+      { key: "showAvatars", labelAr: "إظهار الصور", type: "TOGGLE", default: true },
+      { key: "hideAfterSeconds", labelAr: "إخفاء الرسالة بعد (ثانية)", type: "NUMBER", default: 0, min: 0, max: 300, hintAr: "0 = تفضل ظاهرة" },
+    ],
+  },
+  {
+    id: "GIFT_FEED",
+    nameAr: "آخر الهدايا",
+    descriptionAr: "قائمة بآخر الهدايا اللي وصلتك، بصورة الهدية واسم صاحبها.",
+    category: "GIFTS",
+    feed: "GIFTS",
+    recommendedSize: { width: 420, height: 480 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "maxItems", labelAr: "أقصى عدد هدايا", type: "NUMBER", default: 8, min: 1, max: 25 },
+      { key: "showCoins", labelAr: "إظهار قيمة الكوينز", type: "TOGGLE", default: true },
+    ],
+  },
+  {
+    id: "TOP_GIFTERS",
+    nameAr: "أعلى الداعمين",
+    descriptionAr: "ترتيب أكتر مشاهدين صرفوا كوينز في اللايف الحالي.",
+    category: "RANKING",
+    feed: "GIFTS",
+    recommendedSize: { width: 380, height: 420 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "topCount", labelAr: "عدد المراكز", type: "NUMBER", default: 5, min: 3, max: 20 },
+      { key: "showCoins", labelAr: "إظهار الكوينز", type: "TOGGLE", default: true },
+      { key: "titleAr", labelAr: "العنوان", type: "TEXT", default: "أعلى الداعمين" },
+    ],
+  },
+  {
+    id: "TOP_LIKERS",
+    nameAr: "أعلى اللايكات",
+    descriptionAr: "ترتيب أكتر مشاهدين عملوا لايك في اللايف الحالي.",
+    category: "RANKING",
+    feed: "LIKES",
+    recommendedSize: { width: 380, height: 420 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "topCount", labelAr: "عدد المراكز", type: "NUMBER", default: 5, min: 3, max: 20 },
+      { key: "titleAr", labelAr: "العنوان", type: "TEXT", default: "أعلى اللايكات" },
+    ],
+  },
+  {
+    id: "VIEWER_COUNT",
+    nameAr: "عدد المشاهدين",
+    descriptionAr: "عدد المشاهدين الحاليين في اللايف.",
+    category: "UTILITY",
+    feed: "ROOM",
+    recommendedSize: { width: 260, height: 90 },
+    testable: true,
+    noteAr: "الرقم بيتحدّث كل كام ثانية من TikTok، ومش دايماً بيكون متاح.",
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "showFollowers", labelAr: "إظهار عدد المتابعين", type: "TOGGLE", default: false },
+      { key: "labelAr", labelAr: "النص", type: "TEXT", default: "مشاهد" },
+    ],
+  },
+  {
+    id: "LIKE_FOUNTAIN",
+    nameAr: "نافورة اللايكات",
+    descriptionAr: "قلوب بتطلع من تحت الشاشة كل ما المشاهدين يعملوا لايك.",
+    category: "EFFECTS",
+    feed: "LIKES",
+    recommendedSize: { width: 1920, height: 1080 },
+    testable: true,
+    fields: [
+      { key: "accent", labelAr: "لون القلوب", type: "COLOR", default: "#f43f5e" },
+      { key: "intensity", labelAr: "كثافة القلوب", type: "NUMBER", default: 4, min: 1, max: 12, hintAr: "قلوب لكل دفعة لايكات" },
+      { key: "riseSeconds", labelAr: "مدة الطلوع (ثانية)", type: "NUMBER", default: 4, min: 1, max: 12 },
+      { key: "sizePx", labelAr: "حجم القلب", type: "NUMBER", default: 34, min: 12, max: 96 },
+    ],
+  },
+  {
+    id: "GIFT_CANNON",
+    nameAr: "مدفع الهدايا",
+    descriptionAr: "صورة المشاهد بتطير على الشاشة مع الهدية اللي بعتها.",
+    category: "EFFECTS",
+    feed: "GIFTS",
+    recommendedSize: { width: 1920, height: 1080 },
+    testable: true,
+    fields: [
+      { key: "accent", labelAr: "لون الإطار", type: "COLOR", default: "#a855f7" },
+      { key: "textColor", labelAr: "لون النص", type: "COLOR", default: "#ffffff" },
+      { key: "flightSeconds", labelAr: "مدة الطيران (ثانية)", type: "NUMBER", default: 5, min: 2, max: 15 },
+      { key: "avatarSize", labelAr: "حجم الصورة", type: "NUMBER", default: 78, min: 32, max: 200 },
+      { key: "showGiftName", labelAr: "إظهار اسم الهدية", type: "TOGGLE", default: true },
+    ],
+  },
+  {
+    id: "GIFT_FIREWORK",
+    nameAr: "ألعاب نارية",
+    descriptionAr:
+      "الهدية بتطلع لفوق ورا شعلة، وعند القمة بتنفجر لحلقة من نفس الهدية مع شرار ملوّن.",
+    category: "EFFECTS",
+    feed: "GIFTS",
+    recommendedSize: { width: 1920, height: 1080 },
+    testable: true,
+    noteAr: "حطها فوق كل حاجة في المشهد — بتاخد الشاشة كلها وخلفيتها شفافة.",
+    fields: [
+      { key: "trailColor", labelAr: "لون الشعلة", type: "COLOR", default: "#fbbf24" },
+      { key: "giftSize", labelAr: "حجم الهدية", type: "NUMBER", default: 96, min: 32, max: 240 },
+      { key: "ringCount", labelAr: "عدد الهدايا في الانفجار", type: "NUMBER", default: 14, min: 4, max: 30 },
+      { key: "burstRadius", labelAr: "اتساع الانفجار", type: "NUMBER", default: 190, min: 60, max: 500 },
+      { key: "riseSeconds", labelAr: "مدة الطلوع (ثانية)", type: "NUMBER", default: 1, min: 1, max: 5 },
+      { key: "burstSeconds", labelAr: "مدة الانفجار (ثانية)", type: "NUMBER", default: 2, min: 1, max: 6 },
+      {
+        key: "minCoins",
+        labelAr: "أقل عدد كوينز يشغّلها",
+        type: "NUMBER",
+        default: 0,
+        min: 0,
+        max: 100000,
+        hintAr: "0 = أي هدية تشغّلها. ارفعه لو الهدايا الصغيرة بتملى الشاشة.",
+      },
+      { key: "showSparks", labelAr: "شرار ملوّن في النص", type: "TOGGLE", default: true },
+    ],
+  },
+  {
+    id: "GIFT_GOAL",
+    nameAr: "هدف الهدايا",
+    descriptionAr: "شريط تقدّم بيتملى بكوينز الهدايا لحد ما توصل للهدف.",
+    category: "GIFTS",
+    feed: "GIFTS",
+    recommendedSize: { width: 640, height: 130 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "goalCoins", labelAr: "الهدف بالكوينز", type: "NUMBER", default: 1000, min: 1, max: 10000000 },
+      { key: "titleAr", labelAr: "عنوان الهدف", type: "TEXT", default: "هدف اللايف" },
+      { key: "showNumbers", labelAr: "إظهار الأرقام", type: "TOGGLE", default: true },
+    ],
+  },
+  {
+    id: "COIN_JAR",
+    nameAr: "برطمان الكوينز",
+    descriptionAr:
+      "برطمان زجاجي على الاستريم بيتملى كوينز مع كل هدية — الكوينز بتقع جواه وتتكوّم، وعدّاد تحته بيجمّع الحصيلة.",
+    category: "GIFTS",
+    feed: "GIFTS",
+    recommendedSize: { width: 420, height: 560 },
+    testable: true,
+    // Its own counter, separate from the goal widget's: emptying the jar for a new segment must
+    // not silently wipe the stream's gift goal too.
+    resettable: true,
+    noteAr: "العدّاد بتاع البرطمان مستقل عن هدف الهدايا — تفضيه مبيأثرش على الهدف.",
+    fields: [
+      // No glass/coin colour pickers: the jar and coin are supplied artwork, not drawn shapes,
+      // so a colour control here would be a knob that does nothing.
+      { key: "textColor", labelAr: "لون النص", type: "COLOR", default: "#ffffff" },
+      { key: "bgOpacity", labelAr: "شفافية خلفية العدّاد", type: "NUMBER", default: 45, min: 0, max: 100 },
+      {
+        key: "goalCoins",
+        labelAr: "البرطمان يتملى عند",
+        type: "NUMBER",
+        default: 1000,
+        min: 10,
+        max: 10000000,
+        hintAr: "عدد الكوينز اللي يعتبر البرطمان اتملى بيها",
+      },
+      { key: "coinsPerGift", labelAr: "كوينز متحركة لكل هدية", type: "NUMBER", default: 6, min: 1, max: 25 },
+      { key: "showCounter", labelAr: "إظهار العدّاد", type: "TOGGLE", default: true },
+      { key: "showGoal", labelAr: "إظهار الهدف جنب العدّاد", type: "TOGGLE", default: false },
+      { key: "showGiftInJar", labelAr: "صورة الهدية تقع في البرطمان", type: "TOGGLE", default: true },
+      { key: "showSenderCard", labelAr: "إظهار كارت الباعت تحت البرطمان", type: "TOGGLE", default: true },
+      {
+        key: "senderCardSeconds",
+        labelAr: "الكارت يختفي بعد (ثانية)",
+        type: "NUMBER",
+        default: 5,
+        min: 1,
+        max: 60,
+      },
+      { key: "labelAr", labelAr: "نص فوق البرطمان", type: "TEXT", default: "" },
+      {
+        key: "font",
+        labelAr: "الخط",
+        type: "SELECT",
+        default: "cairo",
+        options: [
+          { value: "cairo", labelAr: "Cairo (عربي)" },
+          { value: "tajawal", labelAr: "Tajawal (عربي)" },
+          { value: "system", labelAr: "خط النظام" },
+        ],
+      },
+      { key: "fontSize", labelAr: "حجم الخط", type: "NUMBER", default: 20, min: 10, max: 48 },
+    ],
+  },
+  {
+    id: "RANKING",
+    nameAr: "الترتيب التراكمي",
+    descriptionAr: "أعلى المشاهدين نقاطاً عبر كل لايفاتك، مش اللايف الحالي بس.",
+    category: "RANKING",
+    feed: "POINTS",
+    recommendedSize: { width: 380, height: 460 },
+    testable: false,
+    noteAr: "بيقرأ من ترتيب المشاهدين التراكمي، فبيفضل ظاهر حتى من غير لايف شغال.",
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "topCount", labelAr: "عدد المراكز", type: "NUMBER", default: 10, min: 3, max: 25 },
+      { key: "titleAr", labelAr: "العنوان", type: "TEXT", default: "الترتيب" },
+    ],
+  },
+  {
+    id: "TIMER",
+    nameAr: "المؤقّت",
+    descriptionAr: "عدّاد تنازلي بتتحكم فيه من لوحة التحكم.",
+    category: "UTILITY",
+    feed: "NONE",
+    recommendedSize: { width: 320, height: 120 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "labelAr", labelAr: "النص فوق العدّاد", type: "TEXT", default: "" },
+      { key: "warnAtSeconds", labelAr: "يتحوّل أحمر عند (ثانية)", type: "NUMBER", default: 10, min: 0, max: 600 },
+    ],
+  },
+  {
+    id: "SOCIAL_ROTATOR",
+    nameAr: "دوّار السوشيال",
+    descriptionAr: "حساباتك على السوشيال بتظهر بالتناوب في ركن الشاشة.",
+    category: "UTILITY",
+    feed: "NONE",
+    recommendedSize: { width: 420, height: 110 },
+    testable: false,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "handles", labelAr: "الحسابات", type: "TEXT", default: "", hintAr: "افصل بينهم بفاصلة، مثال: tiktok:@me, instagram:@me" },
+      { key: "rotateSeconds", labelAr: "مدة كل حساب (ثانية)", type: "NUMBER", default: 6, min: 2, max: 60 },
+    ],
+  },
+  {
+    id: "LAST_FOLLOWER",
+    nameAr: "آخر متابع",
+    descriptionAr: "بيعرض اسم وصورة آخر واحد تابعك في اللايف.",
+    category: "UTILITY",
+    feed: "FOLLOWS",
+    recommendedSize: { width: 380, height: 110 },
+    testable: true,
+    fields: [
+      ...COMMON_FIELDS,
+      { key: "labelAr", labelAr: "النص", type: "TEXT", default: "آخر متابع" },
+      { key: "hideAfterSeconds", labelAr: "إخفاء بعد (ثانية)", type: "NUMBER", default: 0, min: 0, max: 600, hintAr: "0 = يفضل ظاهر" },
+    ],
+  },
+];
+
+export function getOverlayWidget(id: string): OverlayWidgetDefinition | undefined {
+  return OVERLAY_WIDGET_CATALOG.find((w) => w.id === id);
+}
+
+/** Resolved settings for one widget: the definition's defaults with the streamer's overrides on top. */
+export type OverlayWidgetSettings = Record<string, string | number | boolean>;
+
+export function overlayWidgetDefaults(def: OverlayWidgetDefinition): OverlayWidgetSettings {
+  const out: OverlayWidgetSettings = {};
+  for (const field of def.fields) out[field.key] = field.default;
+  return out;
+}
+
+// --- Widget socket contract --------------------------------------------------------
+
+export const WidgetSocketEvents = {
+  /** Full snapshot, sent once on connect so a widget added mid-stream isn't blank. */
+  Snapshot: "widget:snapshot",
+  /** One gift transaction (already de-duplicated for streaks). */
+  Gift: "widget:gift",
+  /** A batch of likes from one viewer. */
+  Like: "widget:like",
+  Follow: "widget:follow",
+  /** Rolling totals: top gifters, top likers, goal progress. */
+  Totals: "widget:totals",
+  /** Streamer-driven countdown state. */
+  Timer: "widget:timer",
+} as const;
+
+export interface WidgetGiftPayload {
+  viewer: NormalizedViewer;
+  giftName: string | null;
+  imageUrl: string | null;
+  coins: number;
+  repeatCount: number;
+  totalCoins: number;
+  at: string;
+}
+
+export interface WidgetLikePayload {
+  viewer: NormalizedViewer;
+  count: number;
+  at: string;
+}
+
+export interface WidgetFollowPayload {
+  viewer: NormalizedViewer;
+  at: string;
+}
+
+export interface WidgetRankRow {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  value: number;
+}
+
+export interface WidgetTotals {
+  topGifters: WidgetRankRow[];
+  topLikers: WidgetRankRow[];
+  totalCoins: number;
+  totalLikes: number;
+  /** The coin jar's own running total. Tracks the same gifts as `totalCoins` but can be zeroed
+   *  on its own, so emptying the jar between segments doesn't reset the stream's gift goal. */
+  jarCoins: number;
+}
+
+export interface WidgetTimerState {
+  /** ISO instant the countdown ends. Null when no timer is running. Server-authoritative, same
+   *  rule as every game's phaseEndsAt — the widget must never run its own independent clock. */
+  endsAt: string | null;
+  label: string;
+  running: boolean;
+}
+
+export interface WidgetSnapshot {
+  totals: WidgetTotals;
+  recentGifts: WidgetGiftPayload[];
+  lastFollower: WidgetFollowPayload | null;
+  timer: WidgetTimerState;
+}

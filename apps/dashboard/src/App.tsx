@@ -5,9 +5,9 @@ import { AuthProvider } from "./lib/auth";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
+import Analytics from "./pages/Analytics";
 import AuthCallback from "./pages/AuthCallback";
 import CapitalsControl from "./pages/CapitalsControl";
-import Dashboard from "./pages/Dashboard";
 import DrawingControl from "./pages/DrawingControl";
 import FlagsControl from "./pages/FlagsControl";
 import GuessNumberControl from "./pages/GuessNumberControl";
@@ -20,11 +20,17 @@ import Login from "./pages/Login";
 import MazeControl from "./pages/MazeControl";
 import MusicalChairsControl from "./pages/MusicalChairsControl";
 import NotFound from "./pages/NotFound";
+import Overlays from "./pages/Overlays";
+import Overview from "./pages/Overview";
 import Privacy from "./pages/Privacy";
 import Register from "./pages/Register";
 import SpeedWordControl from "./pages/SpeedWordControl";
 import SpinWheelControl from "./pages/SpinWheelControl";
+import Subscription from "./pages/Subscription";
 import Terms from "./pages/Terms";
+import TikGamesHub from "./pages/TikGamesHub";
+import TikGamesLanding from "./pages/TikGamesLanding";
+import Tools from "./pages/Tools";
 import TriviaControl from "./pages/TriviaControl";
 import WordRoundControl from "./pages/WordRoundControl";
 import WouldYouRatherControl from "./pages/WouldYouRatherControl";
@@ -40,6 +46,7 @@ export default function App() {
         <div id="main-content">
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/tikgames" element={<TikGamesLanding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -49,7 +56,47 @@ export default function App() {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <Overview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/tikgames"
+              element={
+                <ProtectedRoute>
+                  <TikGamesHub />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools"
+              element={
+                <ProtectedRoute>
+                  <Tools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/overlays"
+              element={
+                <ProtectedRoute>
+                  <Overlays />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/subscription"
+              element={
+                <ProtectedRoute>
+                  <Subscription />
                 </ProtectedRoute>
               }
             />

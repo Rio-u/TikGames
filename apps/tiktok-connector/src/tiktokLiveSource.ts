@@ -47,6 +47,55 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Pulls gift name / coin value / image out of a GIFT message. Same defensive posture as
+ * extractRoomProfile: the payload is undocumented and its field names differ between the
+ * Euler-normalized shape and the raw protobuf-derived one, so every field is tried in several
+ * places and falls back to "unknown" rather than to a guess. Coins especially: a wrong diamond
+ * value silently corrupts every gifter leaderboard, so 0 (= don't count) beats an estimate.
+ *
+ * `isStreakFinished` decides whether a tick may be totalled. Streakable gifts repeat while the
+ * viewer holds the button, each tick carrying the running repeatCount; only the last one is
+ * authoritative. `repeatEnd` marks it. Non-streakable gifts have no streak at all, so they're
+ * finished on arrival — which is why `giftType !== 1` counts as finished here.
+ */
+function extractGiftDetails(msg: any): {
+  giftName: string | null;
+  coins: number;
+  imageUrl: string | null;
+  isStreakFinished: boolean;
+} {
+  try {
+    const details = msg?.giftDetails ?? msg?.gift ?? {};
+    const giftName = firstDefined(
+      toNonEmptyString(msg?.giftName),
+      toNonEmptyString(details?.giftName),
+      toNonEmptyString(details?.name),
+    );
+    const coins =
+      firstDefined(
+        toFiniteNumber(msg?.diamondCount),
+        toFiniteNumber(details?.diamondCount),
+        toFiniteNumber(details?.diamond_count),
+      ) ?? 0;
+    const imageUrl = firstDefined(
+      toNonEmptyString(msg?.giftPictureUrl),
+      toNonEmptyString(details?.giftImage?.giftPictureUrl),
+      toNonEmptyString(details?.image?.url_list?.[0]),
+      toNonEmptyString(details?.icon?.url_list?.[0]),
+    );
+
+    // giftType 1 = streakable. Anything else (or a missing type) can't streak, so it's final.
+    const giftType = toFiniteNumber(msg?.giftType ?? details?.type);
+    const repeatEnd = msg?.repeatEnd === true || msg?.repeatEnd === 1;
+    const isStreakFinished = giftType === 1 ? repeatEnd : true;
+
+    return { giftName, coins: coins > 0 ? coins : 0, imageUrl, isStreakFinished };
+  } catch {
+    return { giftName: null, coins: 0, imageUrl: null, isStreakFinished: true };
+  }
+}
+
+/**
  * `connection.roomInfo` is typed `any` by the library on purpose — its real shape depends on
  * which of three internal fetch routes resolved at connect time (Euler-signed / unsigned
  * api-live / HTML-scrape fallback), with no discriminant exposed to tell them apart. Try every
@@ -131,13 +180,14 @@ export class TikTokLiveSource extends EventEmitter {
       });
     });
 
-    connection.on(WebcastEvent.GIFT, (msg) => {
+    connection.on(WebcastEvent.GIFT, (msg: any) => {
       this.emitEvent({
         type: "gift",
         liveSessionId,
         viewer: normalizeViewer(msg.user),
         giftId: String(msg.giftId ?? ""),
         repeatCount: msg.repeatCount ?? 1,
+        ...extractGiftDetails(msg),
         at: new Date().toISOString(),
       });
     });

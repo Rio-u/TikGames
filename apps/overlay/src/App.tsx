@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import OverlayRoom from "./pages/OverlayRoom";
+import WidgetRoom from "./pages/WidgetRoom";
 
 function Placeholder() {
   return (
@@ -22,6 +23,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Placeholder />} />
         <Route path="/o/:overlayToken" element={<OverlayRoom />} />
+        {/* One browser source per widget — this is what makes free positioning in OBS possible. */}
+        <Route path="/w/:overlayToken/:widgetId" element={<WidgetRoom />} />
       </Routes>
     </BrowserRouter>
   );
