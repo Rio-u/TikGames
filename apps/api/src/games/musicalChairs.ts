@@ -121,21 +121,34 @@ export class MusicalChairsEngine {
     };
   }
 
-  private static readonly MUSIC_DURATION_MS = 7000;
+  // Randomised per round rather than fixed. With a constant 7s the music always stopped on the
+  // same beat, so players learned the rhythm and pre-typed their chair number — which is the one
+  // thing musical chairs is supposed to prevent.
+  private static readonly MUSIC_MIN_MS = 5000;
+  private static readonly MUSIC_MAX_MS = 8000;
   private static readonly CHOOSING_DURATION_MS = 5000;
 
   private activePlayers(): MusicalChairsPlayer[] {
     return [...this.players.values()].filter((p) => !p.eliminatedAt);
   }
 
-  /** "Music" plays: no input accepted, just a fixed pause before chairs open up for claims. */
+  /** How long the music runs this round: 5–8 seconds, redrawn every time. */
+  private static musicDuration(): number {
+    const span = MusicalChairsEngine.MUSIC_MAX_MS - MusicalChairsEngine.MUSIC_MIN_MS;
+    return MusicalChairsEngine.MUSIC_MIN_MS + Math.floor(Math.random() * (span + 1));
+  }
+
+  /** "Music" plays: no input accepted, just a pause of unknown length before chairs open up. */
   private startMusicPhase(): void {
     const remaining = this.activePlayers();
     this.phase = "RUNNING";
     this.chairCount = remaining.length - 1;
     this.claims.clear();
-    this.phaseEndsAt = new Date(Date.now() + MusicalChairsEngine.MUSIC_DURATION_MS);
-    this.timer = setTimeout(() => this.startChoosingPhase(), MusicalChairsEngine.MUSIC_DURATION_MS);
+    // Drawn once into a local and used for both the timer and phaseEndsAt. Calling the random
+    // helper twice would let the client's countdown and the actual transition disagree.
+    const duration = MusicalChairsEngine.musicDuration();
+    this.phaseEndsAt = new Date(Date.now() + duration);
+    this.timer = setTimeout(() => this.startChoosingPhase(), duration);
     this.emitChange();
   }
 

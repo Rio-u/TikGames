@@ -6,6 +6,7 @@ import { TriviaGameView } from "../components/TriviaGameView";
 import type { TriviaState } from "../lib/liveApi";
 
 export default function TriviaControl() {
+  const [totalRounds, setTotalRounds] = useState(10);
   const [answerDurationSeconds, setAnswerDurationSeconds] = useState(20);
 
   return (
@@ -14,9 +15,18 @@ export default function TriviaControl() {
       pageTitle="أسئلة عامة"
       icon={<Question size={20} className="text-accent" weight="fill" />}
       configName="أسئلة عامة"
-      buildSettings={() => ({ answerDurationSeconds })}
+      buildSettings={() => ({ totalRounds, answerDurationSeconds })}
       renderSettings={() => (
         <>
+          <Input
+            label="عدد الأسئلة"
+            type="number"
+            min={1}
+            max={50}
+            value={totalRounds}
+            onChange={(e) => setTotalRounds(Number(e.target.value))}
+            className="max-w-xs"
+          />
           <Input
             label="مدة الإجابة (ثانية)"
             type="number"

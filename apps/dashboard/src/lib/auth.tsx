@@ -46,25 +46,50 @@ const SILENT_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 // interval here AND on-demand 401 retries from other API modules (liveApi.ts, ...). Refresh
 // tokens rotate on use, so two concurrent refreshes would race the same token through two
 // rotations and one of them would fail; de-duping here is what prevents that.
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: Promise<RefreshResult> | null = null;
 
-/** Rotates the access/refresh pair. Returns the new access token, or null if the refresh token
- * itself is no longer valid (the session is genuinely over), clearing the stored session either way. */
-export function refreshAccessToken(): Promise<string | null> {
+/**
+ * Outcome of a refresh attempt. `sessionOver` is the important field: it separates "the server
+ * says this session is finished" from "we could not reach the server", which must not log anyone
+ * out.
+ */
+export interface RefreshResult {
+  ok: boolean;
+  token?: string;
+  sessionOver?: boolean;
+}
+
+/** A thrown error that means the credentials themselves were rejected, rather than the request
+ *  failing to complete. parseJsonOrThrow puts the status in the message for exactly this. */
+function isAuthRejection(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /401|403/.test(message) || /refresh token/i.test(message);
+}
+
+/** Rotates the access/refresh pair. Clears the stored session only when the server rejects it. */
+export function refreshAccessToken(): Promise<RefreshResult> {
   if (refreshInFlight) return refreshInFlight;
 
-  const run = async () => {
+  const run = async (): Promise<RefreshResult> => {
     const storedRefresh = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!storedRefresh) return null;
+    if (!storedRefresh) return { ok: false, sessionOver: true };
     try {
       const tokens = await refreshRequest(storedRefresh);
       localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-      return tokens.accessToken;
-    } catch {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      return null;
+      return { ok: true, token: tokens.accessToken };
+    } catch (err) {
+      // The distinction that matters, and the bug this fixes: only a server that actually
+      // *rejected* the token ends the session. Anything else — the wifi dropping, the laptop
+      // waking from sleep, the API restarting mid-deploy — used to land in this same catch and
+      // wipe the stored session, which is why a streamer sitting on the dashboard for half an
+      // hour would find themselves logged out for no reason they could see.
+      if (isAuthRejection(err)) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        return { ok: false, sessionOver: true };
+      }
+      return { ok: false, sessionOver: false };
     }
   };
 
@@ -106,17 +131,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Access token expired — fall through to a silent refresh before giving up.
       }
 
-      const newToken = await refreshAccessToken();
-      if (!newToken) {
-        if (!cancelled) clearSession();
+      const result = await refreshAccessToken();
+      if (!result.ok) {
+        // Only a genuine rejection ends the session; a network failure leaves it alone so the
+        // next interval tick, or the next thing the user clicks, can retry.
+        if (result.sessionOver && !cancelled) clearSession();
         return;
       }
 
       try {
-        const data = await meRequest(newToken);
+        const data = await meRequest(result.token!);
         if (!cancelled) setUser(data.user);
-      } catch {
-        if (!cancelled) clearSession();
+      } catch (err) {
+        if (isAuthRejection(err) && !cancelled) clearSession();
       }
     }
 
@@ -124,15 +151,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     });
 
-    const interval = window.setInterval(async () => {
+    const silentRefresh = async () => {
       if (!localStorage.getItem(REFRESH_TOKEN_KEY)) return;
-      const newToken = await refreshAccessToken();
-      if (!newToken && !cancelled) clearSession();
-    }, SILENT_REFRESH_INTERVAL_MS);
+      const result = await refreshAccessToken();
+      if (!result.ok && result.sessionOver && !cancelled) clearSession();
+    };
+
+    const interval = window.setInterval(silentRefresh, SILENT_REFRESH_INTERVAL_MS);
+
+    // Browsers throttle timers in background tabs and stop them entirely while the machine is
+    // asleep, so the interval alone cannot be trusted to have run. Refreshing on the way back
+    // catches up immediately instead of letting the next click race an expired token.
+    const onWake = () => {
+      if (document.visibilityState === "visible") void silentRefresh();
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
     };
   }, []);
 
@@ -168,10 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // access token may have just expired — try one silent refresh before giving up.
     }
-    const newToken = await refreshAccessToken();
-    if (!newToken) return;
+    const refreshed = await refreshAccessToken();
+    if (!refreshed.ok) return;
     try {
-      const data = await meRequest(newToken);
+      const data = await meRequest(refreshed.token!);
       setUser(data.user);
     } catch {
       // leave the existing user state as-is; the next 401 elsewhere will sort out logout.

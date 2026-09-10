@@ -1,5 +1,6 @@
 import type { FlagsPlayer, FlagsSettings, FlagsState } from "@tikgames/shared-types";
 import { FLAGS_QUESTIONS, type FlagQuestion } from "./flagsQuestions.js";
+import { filterByDifficulty } from "./countryTiers.js";
 import { normalizeAnswer } from "./textNormalize.js";
 
 function shuffled<T>(items: T[]): T[] {
@@ -67,7 +68,7 @@ export class FlagsEngine {
   /** Closes setup and deals flag 1. */
   begin(): boolean {
     if (this.phase !== "WAITING_TO_START") return false;
-    this.queue = shuffled(FLAGS_QUESTIONS);
+    this.queue = shuffled(this.bank());
     this.nextFlag();
     return true;
   }
@@ -93,11 +94,17 @@ export class FlagsEngine {
     };
   }
 
+  /** The question pool for the chosen difficulty, resolved fresh so a mid-session settings
+   *  change would be picked up on the next refill rather than being baked in at begin(). */
+  private bank() {
+    return filterByDifficulty(FLAGS_QUESTIONS, this.settings.difficulty ?? "medium");
+  }
+
   private static readonly REVEAL_DURATION_MS = 4000;
   private static readonly MIN_ANSWER_DURATION_S = 5;
 
   private nextFlag(): void {
-    if (this.queue.length === 0) this.queue = shuffled(FLAGS_QUESTIONS);
+    if (this.queue.length === 0) this.queue = shuffled(this.bank());
     this.currentFlag = this.queue.pop() ?? null;
     this.lastWinner = null;
     this.round += 1;

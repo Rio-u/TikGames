@@ -1,5 +1,6 @@
 import type { CapitalsPlayer, CapitalsSettings, CapitalsState } from "@tikgames/shared-types";
 import { CAPITALS_QUESTIONS, type CapitalQuestion } from "./capitalsQuestions.js";
+import { filterByDifficulty } from "./countryTiers.js";
 import { normalizeAnswer } from "./textNormalize.js";
 
 function shuffled<T>(items: T[]): T[] {
@@ -69,7 +70,7 @@ export class CapitalsEngine {
   /** Closes setup and deals country 1. */
   begin(): boolean {
     if (this.phase !== "WAITING_TO_START") return false;
-    this.queue = shuffled(CAPITALS_QUESTIONS);
+    this.queue = shuffled(this.bank());
     this.nextQuestion();
     return true;
   }
@@ -96,11 +97,17 @@ export class CapitalsEngine {
     };
   }
 
+  /** The question pool for the chosen difficulty, resolved fresh so a mid-session settings
+   *  change would be picked up on the next refill rather than being baked in at begin(). */
+  private bank() {
+    return filterByDifficulty(CAPITALS_QUESTIONS, this.settings.difficulty ?? "medium");
+  }
+
   private static readonly REVEAL_DURATION_MS = 4000;
   private static readonly MIN_ANSWER_DURATION_S = 5;
 
   private nextQuestion(): void {
-    if (this.queue.length === 0) this.queue = shuffled(CAPITALS_QUESTIONS);
+    if (this.queue.length === 0) this.queue = shuffled(this.bank());
     this.current = this.queue.pop() ?? null;
     this.lastWinner = null;
     this.round += 1;

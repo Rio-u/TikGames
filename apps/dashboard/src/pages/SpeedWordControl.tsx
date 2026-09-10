@@ -6,6 +6,7 @@ import { SpeedWordGameView } from "../components/SpeedWordGameView";
 import type { SpeedWordState } from "../lib/liveApi";
 
 export default function SpeedWordControl() {
+  const [totalRounds, setTotalRounds] = useState(10);
   const [answerDurationSeconds, setAnswerDurationSeconds] = useState(12);
 
   return (
@@ -14,9 +15,18 @@ export default function SpeedWordControl() {
       pageTitle="أسرع"
       icon={<Lightning size={20} className="text-accent" weight="fill" />}
       configName="أسرع"
-      buildSettings={() => ({ answerDurationSeconds })}
+      buildSettings={() => ({ totalRounds, answerDurationSeconds })}
       renderSettings={() => (
         <>
+          <Input
+            label="عدد الكلمات"
+            type="number"
+            min={1}
+            max={50}
+            value={totalRounds}
+            onChange={(e) => setTotalRounds(Number(e.target.value))}
+            className="max-w-xs"
+          />
           <Input
             label="مدة الإجابة (ثانية)"
             type="number"

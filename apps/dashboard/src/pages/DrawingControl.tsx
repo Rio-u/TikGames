@@ -10,6 +10,7 @@ import { connectDashboardSocket } from "../lib/socket";
 import { useLiveSession } from "../lib/useLiveSession";
 
 export default function DrawingControl() {
+  const [totalRounds, setTotalRounds] = useState(5);
   const [roundSeconds, setRoundSeconds] = useState(60);
   const { liveSession } = useLiveSession();
 
@@ -51,9 +52,18 @@ export default function DrawingControl() {
       pageTitle="تحدي الرسم"
       icon={<PaintBrush size={20} className="text-accent" weight="fill" />}
       configName="تحدي الرسم"
-      buildSettings={() => ({ roundSeconds })}
+      buildSettings={() => ({ totalRounds, roundSeconds })}
       renderSettings={() => (
         <>
+          <Input
+            label="عدد الكلمات"
+            type="number"
+            min={1}
+            max={20}
+            value={totalRounds}
+            onChange={(e) => setTotalRounds(Number(e.target.value))}
+            className="max-w-xs"
+          />
           <Input
             label="مدة الرسم (ثانية)"
             type="number"

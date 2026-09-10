@@ -1,4 +1,5 @@
 import { authedFetch, parseJsonOrThrow } from "./apiClient";
+import type { GeoDifficulty } from "@tikgames/shared-types";
 
 export type GameType =
   | "MUSICAL_CHAIRS"
@@ -28,6 +29,7 @@ export interface MusicalChairsSettings {
 }
 
 export interface TriviaSettings {
+  totalRounds: number;
   answerDurationSeconds: number;
 }
 
@@ -55,11 +57,13 @@ export interface WouldYouRatherSettings {
 export interface FlagsSettings {
   totalRounds: number;
   answerDurationSeconds: number;
+  difficulty: GeoDifficulty;
 }
 
 export interface CapitalsSettings {
   totalRounds: number;
   answerDurationSeconds: number;
+  difficulty: GeoDifficulty;
 }
 
 export interface LogosSettings {
@@ -68,6 +72,7 @@ export interface LogosSettings {
 }
 
 export interface SpeedWordSettings {
+  totalRounds: number;
   answerDurationSeconds: number;
 }
 
@@ -79,6 +84,7 @@ export interface MazeSettings {
 }
 
 export interface DrawingSettings {
+  totalRounds: number;
   roundSeconds: number;
 }
 

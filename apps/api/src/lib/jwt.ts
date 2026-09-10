@@ -4,7 +4,11 @@ import jwt from "jsonwebtoken";
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret-change-me";
 
-const ACCESS_TOKEN_TTL = "15m";
+// An hour, not fifteen minutes. A streamer sits on this page for the length of a broadcast, and
+// a short TTL means the silent refresh is the only thing keeping them signed in — so every
+// hiccup in that one path becomes a logout. Refresh still rotates; this just widens the window
+// it has to succeed in.
+const ACCESS_TOKEN_TTL = "1h";
 const REFRESH_TOKEN_TTL_DAYS = 30;
 export const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 

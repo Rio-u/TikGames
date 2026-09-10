@@ -4,10 +4,10 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "
 import { useEffect, useRef, useState } from "react";
 import { useCountdown } from "../lib/useCountdown";
 import { Branding } from "./Branding";
-import { ChairIcon } from "./ChairIcon";
 import { ChatStrip, type ChatItem } from "./ChatStrip";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
+import { ChairsArena3D } from "@tikgames/game-3d";
 
 export type { ChatItem };
 
@@ -226,22 +226,14 @@ function ChairsArena({ state }: { state: MusicalChairsState }) {
 
   return (
     <div className="relative flex h-[440px] w-[440px] items-center justify-center">
-      {Array.from({ length: chairsCount }).map((_, i) => {
-        const chairNumber = i + 1;
-        const angle = (2 * Math.PI * i) / chairsCount - Math.PI / 2;
-        const { x, y } = polar(INNER_RADIUS, angle);
-        const taken = state.chairClaims.some((c) => c.chairNumber === chairNumber);
-        return (
-          <div key={i} className="absolute left-1/2 top-1/2" style={{ transform: `translate(${x - 20}px, ${y - 20}px)` }}>
-            <div className={taken ? "text-accent" : "text-primary"}>
-              <ChairIcon size={40} />
-            </div>
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white">
-              {chairNumber}
-            </span>
-          </div>
-        );
-      })}
+      {/* The chairs themselves are 3D now — a raked overhead camera keeps their ring projecting
+          to almost a circle, so the DOM avatar rings layered on top still land on them. */}
+      <ChairsArena3D
+        className="pointer-events-none absolute inset-0"
+        chairCount={chairsCount}
+        takenNumbers={state.chairClaims.map((c) => c.chairNumber)}
+        spinning={state.phase === "RUNNING"}
+      />
 
       <AnimatePresence>
         {seated.map((p) => {
@@ -360,7 +352,7 @@ export function MusicalChairsOverlay({ state, chat }: { state: MusicalChairsStat
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
+              className="grid w-full max-w-[1500px] grid-cols-[180px_1fr_180px] items-center gap-3"
             >
               <ParticipantsPanel players={state.players} />
               <div className="flex justify-center">
@@ -376,7 +368,7 @@ export function MusicalChairsOverlay({ state, chat }: { state: MusicalChairsStat
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
-              className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
+              className="grid w-full max-w-[1500px] grid-cols-[180px_1fr_180px] items-center gap-3"
             >
               <ParticipantsPanel players={state.players} />
               {state.winner ? (

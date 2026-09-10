@@ -104,7 +104,13 @@ export class DrawingEngine {
     this.clearTimer();
     this.phase = "REVEALED";
     this.phaseEndsAt = new Date(Date.now() + DrawingEngine.REVEAL_DURATION_MS);
-    this.timer = setTimeout(() => this.startPicking(), DrawingEngine.REVEAL_DURATION_MS);
+    this.timer = setTimeout(() => {
+      // Same round cap every other game has. Without it this engine looped forever and only
+      // reached FINISHED if the streamer pressed stop, so the winner screen never appeared in
+      // normal play.
+      if (this.round >= this.settings.totalRounds) this.finish();
+      else this.startPicking();
+    }, DrawingEngine.REVEAL_DURATION_MS);
     this.emitChange();
   }
 

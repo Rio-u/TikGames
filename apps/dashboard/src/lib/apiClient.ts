@@ -22,8 +22,8 @@ export async function authedFetch(path: string, opts: RequestInit = {}): Promise
 
   let res = await doFetch(localStorage.getItem(ACCESS_TOKEN_KEY));
   if (res.status === 401) {
-    const newToken = await refreshAccessToken();
-    if (newToken) res = await doFetch(newToken);
+    const refreshed = await refreshAccessToken();
+    if (refreshed.ok) res = await doFetch(refreshed.token!);
   }
   return res;
 }

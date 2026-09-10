@@ -1,6 +1,8 @@
 import { FlagBanner } from "@phosphor-icons/react";
+import type { GeoDifficulty } from "@tikgames/shared-types";
 import { useState } from "react";
 import { FlagsGameView } from "../components/FlagsGameView";
+import { DifficultyPicker } from "../components/DifficultyPicker";
 import { GameControlShell } from "../components/GameControlShell";
 import { Input } from "../components/Input";
 import type { FlagsState } from "../lib/liveApi";
@@ -8,6 +10,7 @@ import type { FlagsState } from "../lib/liveApi";
 export default function FlagsControl() {
   const [totalRounds, setTotalRounds] = useState(10);
   const [answerDurationSeconds, setAnswerDurationSeconds] = useState(15);
+  const [difficulty, setDifficulty] = useState<GeoDifficulty>("medium");
 
   return (
     <GameControlShell<FlagsState>
@@ -15,7 +18,7 @@ export default function FlagsControl() {
       pageTitle="أعلام"
       icon={<FlagBanner size={20} className="text-accent" weight="fill" />}
       configName="أعلام"
-      buildSettings={() => ({ totalRounds, answerDurationSeconds })}
+      buildSettings={() => ({ totalRounds, answerDurationSeconds, difficulty })}
       renderSettings={() => (
         <>
           <Input
@@ -36,6 +39,7 @@ export default function FlagsControl() {
             onChange={(e) => setAnswerDurationSeconds(Number(e.target.value))}
             className="max-w-xs"
           />
+          <DifficultyPicker value={difficulty} onChange={setDifficulty} />
           <p className="text-xs text-ink-muted">
             كل جولة يظهر علم دولة، وأول تعليق باسم الدولة الصح ياخد نقطة — اللعبة بتخلص تلقائي بعد آخر جولة، والفائز
             صاحب أعلى نقط.

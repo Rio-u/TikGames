@@ -3,11 +3,11 @@ import { Crown, SpeakerHigh, Trophy, Users } from "@phosphor-icons/react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useCountdown } from "../lib/useCountdown";
-import { ChairIcon } from "./ChairIcon";
 import { ChatBox, type ChatItem } from "./ChatBox";
 import { NoWinnerScreen } from "./NoWinnerScreen";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { WinnerCelebration } from "./WinnerCelebration";
+import { ChairsArena3D } from "@tikgames/game-3d";
 
 export type { ChatItem };
 
@@ -245,22 +245,14 @@ function ChairsArena({ state }: { state: MusicalChairsState }) {
 
   return (
     <div className="relative flex h-[min(72vh,640px)] w-[min(72vh,640px)] items-center justify-center">
-      {Array.from({ length: chairsCount }).map((_, i) => {
-        const chairNumber = i + 1;
-        const angle = (2 * Math.PI * i) / chairsCount - Math.PI / 2;
-        const { x, y } = polar(INNER_RADIUS, angle);
-        const taken = state.chairClaims.some((c) => c.chairNumber === chairNumber);
-        return (
-          <div key={i} className="absolute left-1/2 top-1/2" style={{ transform: `translate(${x - 27}px, ${y - 27}px)` }}>
-            <div className={taken ? "text-accent" : "text-primary"}>
-              <ChairIcon size={54} />
-            </div>
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
-              {chairNumber}
-            </span>
-          </div>
-        );
-      })}
+      {/* The chairs themselves are 3D now — a raked overhead camera keeps their ring projecting
+          to almost a circle, so the DOM avatar rings layered on top still land on them. */}
+      <ChairsArena3D
+        className="pointer-events-none absolute inset-0"
+        chairCount={chairsCount}
+        takenNumbers={state.chairClaims.map((c) => c.chairNumber)}
+        spinning={state.phase === "RUNNING"}
+      />
 
       <AnimatePresence>
         {seated.map((p) => {
@@ -380,7 +372,7 @@ export function MusicalChairsGameView({
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel players={state.players} />
               <div className="flex items-center justify-center">
@@ -399,7 +391,7 @@ export function MusicalChairsGameView({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
-              className="relative grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="relative grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel players={state.players} />
               {state.winner ? (

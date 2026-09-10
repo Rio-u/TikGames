@@ -348,7 +348,7 @@ export function GameControlShell<TState extends GameState>({
       {/* Fullscreen game — takes over the whole tab the moment a game exists, and stays fullscreen
           across the setup -> running -> finished -> (new game) loop. */}
       {gameState && (
-        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas p-2 sm:p-3">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               {icon}

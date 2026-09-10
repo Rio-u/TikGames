@@ -1,5 +1,6 @@
 import {
   GAME_PRE_ROLL_MS,
+  type GeoDifficulty,
   LiveSocketEvents,
   type CapitalsSettings,
   type CapitalsState,
@@ -48,7 +49,7 @@ import { activeEngines, broadcastToLive, liveSessionToGameSession, type AnyGameE
 const router = Router();
 
 const DEFAULT_MUSICAL_CHAIRS_SETTINGS: MusicalChairsSettings = { maxPlayers: 10, joinCommand: "!ادخل" };
-const DEFAULT_TRIVIA_SETTINGS: TriviaSettings = { answerDurationSeconds: 20 };
+const DEFAULT_TRIVIA_SETTINGS: TriviaSettings = { totalRounds: 10, answerDurationSeconds: 20 };
 const DEFAULT_GUESS_NUMBER_SETTINGS: GuessNumberSettings = { secret: "سر", hint: "", durationSeconds: 45 };
 const DEFAULT_SPIN_WHEEL_SETTINGS: SpinWheelSettings = { maxPlayers: 15, joinCommand: "!ادخل", pickSeconds: 20 };
 const DEFAULT_WOULD_YOU_RATHER_SETTINGS: WouldYouRatherSettings = { voteDurationSeconds: 20 };
@@ -57,12 +58,24 @@ const DEFAULT_WOULD_YOU_RATHER_SETTINGS: WouldYouRatherSettings = { voteDuration
 // score (elimination/single-guess games) — score-bearing games (Trivia/Flags/Capitals/Logos)
 // instead pay out via the real per-round score diff, no separate bonus on top.
 const WINNER_BONUS_POINTS = 10;
-const DEFAULT_FLAGS_SETTINGS: FlagsSettings = { totalRounds: 10, answerDurationSeconds: 15 };
-const DEFAULT_CAPITALS_SETTINGS: CapitalsSettings = { totalRounds: 10, answerDurationSeconds: 15 };
+
+/** Shared by every round-bounded game, so the bound and its error message read the same way. */
+function parseRounds(raw: unknown, fallback: number, max: number): number | null {
+  const n = Number(raw ?? fallback);
+  return Number.isInteger(n) && n >= 1 && n <= max ? n : null;
+}
+
+/** Unknown values fall back to medium rather than 400ing — an older client that predates the
+ *  setting must keep working, and medium is what it was effectively playing anyway. */
+function parseDifficulty(raw: unknown): GeoDifficulty {
+  return raw === "easy" || raw === "medium" || raw === "hard" ? raw : "medium";
+}
+const DEFAULT_FLAGS_SETTINGS: FlagsSettings = { totalRounds: 10, answerDurationSeconds: 15, difficulty: "medium" };
+const DEFAULT_CAPITALS_SETTINGS: CapitalsSettings = { totalRounds: 10, answerDurationSeconds: 15, difficulty: "medium" };
 const DEFAULT_LOGOS_SETTINGS: LogosSettings = { totalRounds: 10, answerDurationSeconds: 15 };
-const DEFAULT_SPEED_WORD_SETTINGS: SpeedWordSettings = { answerDurationSeconds: 12 };
+const DEFAULT_SPEED_WORD_SETTINGS: SpeedWordSettings = { totalRounds: 10, answerDurationSeconds: 12 };
 const DEFAULT_MAZE_SETTINGS: MazeSettings = { maxPlayers: 20, joinCommand: "!دخول", gridSize: 9, durationSeconds: 180 };
-const DEFAULT_DRAWING_SETTINGS: DrawingSettings = { roundSeconds: 60 };
+const DEFAULT_DRAWING_SETTINGS: DrawingSettings = { totalRounds: 5, roundSeconds: 60 };
 const DEFAULT_WORD_ROUND_SETTINGS: WordRoundSettings = { totalRounds: 8, roundSeconds: 45 };
 
 router.get(
@@ -151,6 +164,12 @@ router.post(
     }
 
     if (gameType === "TRIVIA") {
+      const totalRounds = parseRounds(settings?.totalRounds, DEFAULT_TRIVIA_SETTINGS.totalRounds, 50);
+      if (totalRounds === null) {
+        res.status(400).json({ error: "عدد الأسئلة لازم يكون بين 1 و 50" });
+        return;
+      }
+
       const answerDurationSeconds = Number(settings?.answerDurationSeconds ?? DEFAULT_TRIVIA_SETTINGS.answerDurationSeconds);
       if (!Number.isInteger(answerDurationSeconds) || answerDurationSeconds < 5 || answerDurationSeconds > 120) {
         res.status(400).json({ error: "مدة الإجابة لازم تكون بين 5 و 120 ثانية" });
@@ -162,7 +181,7 @@ router.post(
           userId: req.userId!,
           gameType: "TRIVIA",
           name: typeof name === "string" && name.trim() ? name.trim() : "أسئلة عامة",
-          settings: { answerDurationSeconds } satisfies TriviaSettings,
+          settings: { totalRounds, answerDurationSeconds } satisfies TriviaSettings,
         },
       });
       res.status(201).json({ config });
@@ -252,6 +271,7 @@ router.post(
     }
 
     if (gameType === "FLAGS") {
+      const difficulty = parseDifficulty(settings?.difficulty);
       const totalRounds = Number(settings?.totalRounds ?? DEFAULT_FLAGS_SETTINGS.totalRounds);
       if (!Number.isInteger(totalRounds) || totalRounds < 1 || totalRounds > 195) {
         res.status(400).json({ error: "عدد الجولات لازم يكون بين 1 و 195" });
@@ -269,7 +289,7 @@ router.post(
           userId: req.userId!,
           gameType: "FLAGS",
           name: typeof name === "string" && name.trim() ? name.trim() : "أعلام",
-          settings: { totalRounds, answerDurationSeconds } satisfies FlagsSettings,
+          settings: { totalRounds, answerDurationSeconds, difficulty } satisfies FlagsSettings,
         },
       });
       res.status(201).json({ config });
@@ -277,6 +297,7 @@ router.post(
     }
 
     if (gameType === "CAPITALS") {
+      const difficulty = parseDifficulty(settings?.difficulty);
       const totalRounds = Number(settings?.totalRounds ?? DEFAULT_CAPITALS_SETTINGS.totalRounds);
       if (!Number.isInteger(totalRounds) || totalRounds < 1 || totalRounds > 195) {
         res.status(400).json({ error: "عدد الجولات لازم يكون بين 1 و 195" });
@@ -296,7 +317,7 @@ router.post(
           userId: req.userId!,
           gameType: "CAPITALS",
           name: typeof name === "string" && name.trim() ? name.trim() : "عواصم",
-          settings: { totalRounds, answerDurationSeconds } satisfies CapitalsSettings,
+          settings: { totalRounds, answerDurationSeconds, difficulty } satisfies CapitalsSettings,
         },
       });
       res.status(201).json({ config });
@@ -329,6 +350,12 @@ router.post(
     }
 
     if (gameType === "SPEED_WORD") {
+      const totalRounds = parseRounds(settings?.totalRounds, DEFAULT_SPEED_WORD_SETTINGS.totalRounds, 50);
+      if (totalRounds === null) {
+        res.status(400).json({ error: "عدد الكلمات لازم يكون بين 1 و 50" });
+        return;
+      }
+
       const answerDurationSeconds = Number(
         settings?.answerDurationSeconds ?? DEFAULT_SPEED_WORD_SETTINGS.answerDurationSeconds,
       );
@@ -342,7 +369,7 @@ router.post(
           userId: req.userId!,
           gameType: "SPEED_WORD",
           name: typeof name === "string" && name.trim() ? name.trim() : "أسرع",
-          settings: { answerDurationSeconds } satisfies SpeedWordSettings,
+          settings: { totalRounds, answerDurationSeconds } satisfies SpeedWordSettings,
         },
       });
       res.status(201).json({ config });
@@ -388,6 +415,12 @@ router.post(
     }
 
     if (gameType === "DRAWING") {
+      const totalRounds = parseRounds(settings?.totalRounds, DEFAULT_DRAWING_SETTINGS.totalRounds, 20);
+      if (totalRounds === null) {
+        res.status(400).json({ error: "عدد الكلمات لازم يكون بين 1 و 20" });
+        return;
+      }
+
       const roundSeconds = Number(settings?.roundSeconds ?? DEFAULT_DRAWING_SETTINGS.roundSeconds);
       if (!Number.isInteger(roundSeconds) || roundSeconds < 10 || roundSeconds > 300) {
         res.status(400).json({ error: "مدة الرسم لازم تكون بين 10 و 300 ثانية" });
@@ -399,7 +432,7 @@ router.post(
           userId: req.userId!,
           gameType: "DRAWING",
           name: typeof name === "string" && name.trim() ? name.trim() : "تحدي الرسم",
-          settings: { roundSeconds } satisfies DrawingSettings,
+          settings: { totalRounds, roundSeconds } satisfies DrawingSettings,
         },
       });
       res.status(201).json({ config });

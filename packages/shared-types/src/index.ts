@@ -204,6 +204,10 @@ export interface MusicalChairsState {
 // --- Trivia game engine -----------------------------------------------------------
 
 export interface TriviaSettings {
+  /** How many rounds before the game auto-finishes and crowns a winner. Every game is
+   *  round-bounded now: an open-ended game only ever reached FINISHED if the streamer happened
+   *  to press stop, so the winner screen simply never appeared in normal play. */
+  totalRounds: number;
   answerDurationSeconds: number;
 }
 
@@ -363,11 +367,22 @@ export interface WouldYouRatherState {
 
 // --- Flags (أعلام) game engine -------------------------------------------------------
 
+/**
+ * How wide a slice of the world a geography game draws from.
+ *
+ * The point is the chat, not the country list: a room that can name Egypt and France will sit in
+ * silence through Kiribati, and one that wants a challenge is bored by another round of France.
+ * `medium` is the default because it is the band most live rooms can actually play.
+ */
+export type GeoDifficulty = "easy" | "medium" | "hard";
+
+export const GEO_DIFFICULTIES: GeoDifficulty[] = ["easy", "medium", "hard"];
+
 export interface FlagsSettings {
-  /** How many flags this session shows before it auto-finishes — this game is round-bounded,
-   *  unlike Trivia's open-ended "runs until stopped". */
+  /** How many flags this session shows before it auto-finishes. */
   totalRounds: number;
   answerDurationSeconds: number;
+  difficulty: GeoDifficulty;
 }
 
 export type FlagsPhase = "WAITING_TO_START" | "QUESTION" | "REVEALED" | "FINISHED";
@@ -404,6 +419,7 @@ export interface CapitalsSettings {
    *  shape as Flags, this game's closest sibling. */
   totalRounds: number;
   answerDurationSeconds: number;
+  difficulty: GeoDifficulty;
 }
 
 export type CapitalsPhase = "WAITING_TO_START" | "QUESTION" | "REVEALED" | "FINISHED";
@@ -470,6 +486,10 @@ export interface LogosState {
 // --- Speed Word (أسرع) game engine ----------------------------------------------------
 
 export interface SpeedWordSettings {
+  /** How many rounds before the game auto-finishes and crowns a winner. Every game is
+   *  round-bounded now: an open-ended game only ever reached FINISHED if the streamer happened
+   *  to press stop, so the winner screen simply never appeared in normal play. */
+  totalRounds: number;
   answerDurationSeconds: number;
 }
 
@@ -547,6 +567,8 @@ export interface MazeState {
 // --- Drawing (تحدي الرسم) game engine --------------------------------------------------
 
 export interface DrawingSettings {
+  /** How many words the streamer draws before the game auto-finishes and crowns a winner. */
+  totalRounds: number;
   roundSeconds: number;
 }
 

@@ -677,7 +677,7 @@ export function SpinWheelGameView({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel state={state} />
               <WheelArena state={state} />
@@ -694,7 +694,7 @@ export function SpinWheelGameView({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
-              className="relative grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="relative grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel state={state} />
               {state.winner ? (

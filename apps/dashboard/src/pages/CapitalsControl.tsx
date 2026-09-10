@@ -1,6 +1,8 @@
 import { Compass } from "@phosphor-icons/react";
+import type { GeoDifficulty } from "@tikgames/shared-types";
 import { useState } from "react";
 import { CapitalsGameView } from "../components/CapitalsGameView";
+import { DifficultyPicker } from "../components/DifficultyPicker";
 import { GameControlShell } from "../components/GameControlShell";
 import { Input } from "../components/Input";
 import type { CapitalsState } from "../lib/liveApi";
@@ -8,6 +10,7 @@ import type { CapitalsState } from "../lib/liveApi";
 export default function CapitalsControl() {
   const [totalRounds, setTotalRounds] = useState(10);
   const [answerDurationSeconds, setAnswerDurationSeconds] = useState(15);
+  const [difficulty, setDifficulty] = useState<GeoDifficulty>("medium");
 
   return (
     <GameControlShell<CapitalsState>
@@ -15,7 +18,7 @@ export default function CapitalsControl() {
       pageTitle="عواصم"
       icon={<Compass size={20} className="text-cyan-400" weight="fill" />}
       configName="عواصم"
-      buildSettings={() => ({ totalRounds, answerDurationSeconds })}
+      buildSettings={() => ({ totalRounds, answerDurationSeconds, difficulty })}
       renderSettings={() => (
         <>
           <Input
@@ -36,6 +39,7 @@ export default function CapitalsControl() {
             onChange={(e) => setAnswerDurationSeconds(Number(e.target.value))}
             className="max-w-xs"
           />
+          <DifficultyPicker value={difficulty} onChange={setDifficulty} />
           <p className="text-xs text-ink-muted">
             كل جولة يظهر علم وأسم دولة، وأول تعليق بعاصمتها الصح ياخد نقطة — اللعبة بتخلص تلقائي بعد آخر جولة، والفائز
             صاحب أعلى نقط.

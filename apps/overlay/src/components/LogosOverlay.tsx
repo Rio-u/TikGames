@@ -213,7 +213,7 @@ export function LogosOverlay({ state, chat }: { state: LogosState | null; chat: 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
+              className="grid w-full max-w-[1500px] grid-cols-[180px_1fr_180px] items-center gap-3"
             >
               <ParticipantsPanel players={state.players} />
               <div className="flex justify-center">
@@ -229,7 +229,7 @@ export function LogosOverlay({ state, chat }: { state: LogosState | null; chat: 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
-              className="grid w-full max-w-6xl grid-cols-[240px_1fr_240px] items-center gap-5"
+              className="grid w-full max-w-[1500px] grid-cols-[180px_1fr_180px] items-center gap-3"
             >
               <ParticipantsPanel players={state.players} />
               <div className="flex flex-col items-center gap-4 text-center">

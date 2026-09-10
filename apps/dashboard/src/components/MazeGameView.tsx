@@ -201,7 +201,7 @@ export function MazeGameView({ state, chat, onNewRound }: { state: MazeState; ch
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel players={state.players} />
               <MazeArena state={state} />
@@ -215,7 +215,7 @@ export function MazeGameView({ state, chat, onNewRound }: { state: MazeState; ch
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 16 }}
-              className="relative grid h-full w-full grid-cols-1 items-stretch gap-5 lg:grid-cols-[280px_1fr_280px]"
+              className="relative grid h-full w-full grid-cols-1 items-stretch gap-3 lg:grid-cols-[200px_1fr_200px]"
             >
               <ParticipantsPanel players={state.players} />
               {state.winner ? (
