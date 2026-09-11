@@ -231,7 +231,18 @@ export function VictoryCelebration({
   const nameIn = Math.min(Math.max((progress - 0.3) / 0.34, 0), 1);
 
   return (
-    <div key={handle} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
+    <>
+      {/*
+       * An in-flow placeholder, and the reason this is a fragment.
+       *
+       * The celebration below is `position: fixed`, which takes it out of flow — and a fixed child
+       * of a grid is not a grid item at all. Game views lay their finished phase out as
+       * [panel | winner | panel], so without something here the grid saw only two children and
+       * dropped the leaderboard and chat into the wide middle column: they visibly jumped to the
+       * centre the moment somebody won. This keeps the slot.
+       */}
+      <div aria-hidden className="min-h-0" />
+      <div key={handle} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
       {/* The scene fills the viewport; the portrait is laid over its centre. */}
       <div className="absolute inset-0">
         <Stage
@@ -281,7 +292,8 @@ export function VictoryCelebration({
         </div>
 
         {children && <div className="pointer-events-auto mt-2">{children}</div>}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

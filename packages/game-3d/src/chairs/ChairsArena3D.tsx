@@ -315,7 +315,10 @@ export function ChairsArena3D({ chairCount, takenNumbers, spinning, className }:
 
   // Raked ~64° above the horizon: steep enough that the ring projects to nearly a circle, shallow
   // enough that the chairs still read as objects with a seat, a back and legs.
-  const distance = (radius + 1.6) / Math.tan((FOV / 2) * (Math.PI / 180));
+  // The margin is what separates the chairs from the avatar ring the game views draw on top of
+  // this. At +1.6 the chairs filled the frame and the avatars sat right on top of them; +3.2 was
+  // clear but shrank the chairs too far. This keeps both layers legible.
+  const distance = (radius + 2.5) / Math.tan((FOV / 2) * (Math.PI / 180));
   const camY = distance * 0.9;
   const camZ = distance * 0.44;
 

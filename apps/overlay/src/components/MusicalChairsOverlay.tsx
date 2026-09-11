@@ -11,7 +11,7 @@ import { ChairsArena3D } from "@tikgames/game-3d";
 
 export type { ChatItem };
 
-const OUTER_RADIUS = 190;
+const OUTER_RADIUS = 205;
 const INNER_RADIUS = 108;
 
 function polar(radius: number, angle: number) {
