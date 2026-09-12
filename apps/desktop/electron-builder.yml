@@ -1,0 +1,25 @@
+appId: com.tikgames.desktop
+productName: TikGames
+copyright: TikGames
+directories:
+  output: release
+files:
+  - dist/**/*
+  - renderer/**/*
+  - config.json
+  - package.json
+# config.json also ships unpacked next to the exe's resources so a shipped build can be repointed
+# without a rebuild.
+extraResources:
+  - from: config.json
+    to: config.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: TikGames

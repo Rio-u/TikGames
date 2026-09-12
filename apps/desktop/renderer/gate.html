@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Content-Security-Policy: the gate is fully local. It may pull the brand font from Google
+         and nothing else executes — no inline-script injection, no other origins. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self';"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Chakra+Petch:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="gate.css" />
+    <title>TikGames</title>
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true">
+      <span class="blob b1"></span>
+      <span class="blob b2"></span>
+      <span class="blob b3"></span>
+      <span class="grid"></span>
+    </div>
+
+    <main class="card" role="main">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c084fc" />
+              <stop offset="1" stop-color="#7c3aed" />
+            </linearGradient>
+          </defs>
+          <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#tg)" opacity="0.16" />
+          <rect x="4" y="4" width="56" height="56" rx="16" fill="none" stroke="url(#tg)" stroke-width="1.5" />
+          <text x="32" y="42" text-anchor="middle" font-family="Chakra Petch, sans-serif" font-weight="700" font-size="26" fill="url(#tg)">TG</text>
+        </svg>
+        <div class="wordmark">Tik<span>Games</span></div>
+      </div>
+
+      <!-- checking: shown briefly on load while we ask the server about this machine -->
+      <section class="view" id="view-checking">
+        <div class="spinner"></div>
+        <p class="muted">بنتأكد من التفعيل…</p>
+      </section>
+
+      <!-- activate: the password form -->
+      <section class="view" id="view-form" hidden>
+        <h1>تفعيل النسخة</h1>
+        <p class="sub">اكتب باسورد التفعيل اللي وصلك عشان تربط الجهاز ده.</p>
+        <form id="form" autocomplete="off">
+          <label class="field">
+            <span>باسورد التفعيل</span>
+            <input id="password" type="password" required placeholder="••••••••" autofocus />
+          </label>
+          <label class="field">
+            <span>اسم الجهاز <em>(اختياري — يساعدك تعرفه)</em></span>
+            <input id="label" type="text" maxlength="120" placeholder="مثال: لابتوب البيت" />
+          </label>
+          <button class="btn" id="submit" type="submit">
+            <span class="btn-label">تفعيل</span>
+            <span class="btn-spinner" hidden></span>
+          </button>
+          <p class="error" id="error" hidden></p>
+        </form>
+      </section>
+
+      <!-- pending: registered, waiting for admin approval -->
+      <section class="view" id="view-pending" hidden>
+        <div class="pending-badge">🕒</div>
+        <h1>في انتظار الموافقة</h1>
+        <p class="sub">
+          الجهاز اتسجّل، ومستني الأدمن يوافق عليه. الشاشة دي هتفتح لوحدها أول ما يتفعّل — سيبها مفتوحة.
+        </p>
+        <p class="device-id">معرّف الجهاز: <code id="device-short">…</code></p>
+        <div class="pending-dots"><span></span><span></span><span></span></div>
+      </section>
+
+      <!-- blocked / revoked -->
+      <section class="view" id="view-blocked" hidden>
+        <div class="blocked-badge">⛔</div>
+        <h1 id="blocked-title">النسخة دي متوقفة</h1>
+        <p class="sub" id="blocked-sub">تواصل مع الأدمن لإعادة التفعيل.</p>
+        <button class="btn ghost" id="retry" type="button">حاول تاني</button>
+      </section>
+
+      <!-- offline -->
+      <section class="view" id="view-offline" hidden>
+        <div class="blocked-badge">📡</div>
+        <h1>مفيش اتصال بالسيرفر</h1>
+        <p class="sub">اتأكد إنك متصل بالإنترنت وحاول تاني.</p>
+        <button class="btn ghost" id="retry-offline" type="button">حاول تاني</button>
+      </section>
+
+      <footer class="disclaimer">
+        <p>
+          التفعيل بيربط الجهاز ده بحسابك: بنسجّل اسم الجهاز والنظام ومعرّف مشفّر للجهاز عشان الأمان
+          وإدارة التراخيص. مش بنقرأ ملفاتك ولا بياناتك الشخصية.
+        </p>
+        <p class="ver">TikGames Desktop · <span id="version">…</span></p>
+      </footer>
+    </main>
+
+    <script src="gate.js"></script>
+  </body>
+</html>

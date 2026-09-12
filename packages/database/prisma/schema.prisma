@@ -463,3 +463,59 @@ model MusicalChairsTrack {
   uploadedBy   User     @relation("MusicTrackUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 }
+
+// --- Desktop app licensing ---------------------------------------------------------
+//
+// The Electron desktop build is gated by a per-device licence you approve by hand from a Discord
+// admin bot. A device registers with the shared product password, lands as PENDING, and stays
+// locked until you APPROVE it; BLOCKED is the remote kill switch. The client polls
+// /licensing/heartbeat, so an approve or a kill takes effect within one heartbeat, live.
+//
+// Privacy by design: we store a *hash* of the machine's stable hardware attributes, never the raw
+// MAC/serials, plus the hostname and OS username the OS already exposes — the minimum needed to
+// tell one approved laptop from an unknown one. This is disclosed to the user in the app's
+// activation screen; it is licence enforcement, not surveillance of the person's computer.
+enum LicenseDeviceStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+model LicenseDevice {
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  /// sha256 of the device's stable hardware attributes — the identity, and unique per machine.
+  machineHash String              @unique
+  /// Optional label the person typed at activation ("لابتوب البيت"), for your own recognition.
+  label       String?
+  hostname    String?
+  osUser      String?
+  platform    String? // win32 | darwin | linux
+  appVersion  String?
+  status      LicenseDeviceStatus @default(PENDING)
+  lastIp      String?
+  /// Who acted on it from Discord (tag/id), and when — a light audit trail on the row itself.
+  approvedBy  String?
+  approvedAt  DateTime?
+  blockedBy   String?
+  blockedAt   DateTime?
+  blockReason String?
+  firstSeenAt DateTime            @default(now())
+  lastSeenAt  DateTime            @default(now())
+
+  @@index([status])
+}
+
+// Durable audit of licence events, in addition to the Discord mirror. Deliberately app-scoped:
+// registrations, heartbeats that changed something, approvals, blocks — never the contents of the
+// user's machine.
+model LicenseAuditEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  machineHash String?
+  type        String // register | approve | block | kill | reactivate | heartbeat-blocked
+  detail      Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([machineHash])
+  @@index([createdAt])
+}

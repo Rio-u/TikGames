@@ -2,7 +2,7 @@
   "name": "tikgames",
   "private": true,
   "version": "0.1.0",
-  "description": "TikGames — interactive TikTok Live overlay games platform for streamers.",
+  "description": "TikGames \u2014 interactive TikTok Live overlay games platform for streamers.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20"
@@ -21,7 +21,8 @@
       "@prisma/engines",
       "prisma",
       "mongosh",
-      "esbuild"
+      "esbuild",
+      "electron"
     ]
   }
 }

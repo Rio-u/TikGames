@@ -1,0 +1,329 @@
+:root {
+  --ground: #08060f;
+  --surface: rgba(20, 14, 34, 0.72);
+  --line: rgba(124, 92, 200, 0.28);
+  --primary: #7c3aed;
+  --accent: #c084fc;
+  --ember: #ffb545;
+  --ink: #f3effe;
+  --ink-soft: #b6abd4;
+  --ink-mute: #7d7296;
+  --danger: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: Cairo, "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --- ambient background ------------------------------------------------------------- */
+.aurora {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+}
+.b1 {
+  width: 520px;
+  height: 520px;
+  background: #5b2bc4;
+  top: -140px;
+  right: -120px;
+  animation: drift1 18s ease-in-out infinite;
+}
+.b2 {
+  width: 460px;
+  height: 460px;
+  background: #7c3aed;
+  bottom: -160px;
+  left: -120px;
+  animation: drift2 22s ease-in-out infinite;
+}
+.b3 {
+  width: 360px;
+  height: 360px;
+  background: #c084fc;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.28;
+  animation: pulse 9s ease-in-out infinite;
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(124, 92, 200, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 92, 200, 0.06) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%);
+}
+
+@keyframes drift1 {
+  50% {
+    transform: translate(-60px, 50px) scale(1.1);
+  }
+}
+@keyframes drift2 {
+  50% {
+    transform: translate(70px, -40px) scale(1.05);
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.42;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+
+/* --- card --------------------------------------------------------------------------- */
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(440px, 92vw);
+  padding: 40px 38px 22px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--surface);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 40px 90px -40px rgba(124, 58, 237, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.mark {
+  width: 52px;
+  height: 52px;
+  filter: drop-shadow(0 0 14px rgba(124, 58, 237, 0.6));
+}
+.wordmark {
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+}
+.wordmark span {
+  color: var(--accent);
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+.sub {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin: 0 0 24px;
+}
+.muted {
+  color: var(--ink-mute);
+  margin-top: 16px;
+}
+
+/* --- form --------------------------------------------------------------------------- */
+.field {
+  display: block;
+  text-align: right;
+  margin-bottom: 16px;
+}
+.field span {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 7px;
+}
+.field em {
+  color: var(--ink-mute);
+  font-style: normal;
+  font-weight: 400;
+}
+.field input {
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 5, 16, 0.6);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+}
+
+.btn {
+  position: relative;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  font-family: inherit;
+  font-size: 1.02rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  box-shadow: 0 14px 34px -14px rgba(124, 58, 237, 0.9);
+}
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px -14px rgba(124, 58, 237, 1);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+  transform: none;
+}
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  box-shadow: none;
+  margin-top: 18px;
+}
+.btn.ghost:hover {
+  border-color: var(--accent);
+}
+.btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-inline-start: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -3px;
+}
+
+.error {
+  margin: 14px 0 0;
+  color: var(--danger);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* --- spinners / states -------------------------------------------------------------- */
+.spinner {
+  width: 42px;
+  height: 42px;
+  margin: 8px auto 0;
+  border: 3px solid rgba(192, 132, 252, 0.22);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pending-badge,
+.blocked-badge {
+  font-size: 3rem;
+  margin-bottom: 6px;
+  animation: floaty 3s ease-in-out infinite;
+}
+@keyframes floaty {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.device-id {
+  color: var(--ink-mute);
+  font-size: 0.85rem;
+  margin: 4px 0 18px;
+}
+.device-id code {
+  color: var(--accent);
+  font-family: "Chakra Petch", monospace;
+  letter-spacing: 0.05em;
+}
+.pending-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.pending-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: blink 1.3s ease-in-out infinite;
+}
+.pending-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.pending-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes blink {
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+/* --- footer ------------------------------------------------------------------------- */
+.disclaimer {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(124, 92, 200, 0.16);
+}
+.disclaimer p {
+  color: var(--ink-mute);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  margin: 0 0 6px;
+}
+.disclaimer .ver {
+  font-family: "Chakra Petch", monospace;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .pending-badge,
+  .blocked-badge,
+  .pending-dots span {
+    animation: none;
+  }
+}

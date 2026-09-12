@@ -7,9 +7,11 @@ import analyticsRouter from "./routes/analytics.js";
 import authRouter from "./routes/auth.js";
 import gamesRouter from "./routes/games.js";
 import leaderboardRouter from "./routes/leaderboard.js";
+import licensingRouter from "./routes/licensing.js";
 import liveRouter from "./routes/live.js";
 import overlaysRouter from "./routes/overlays.js";
 import productsRouter from "./routes/products.js";
+import { startLicenseBot } from "./lib/licenseBot.js";
 import { setupSocketServer } from "./realtime/socket.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -37,6 +39,7 @@ app.use("/overlays", overlaysRouter);
 app.use("/games", gamesRouter);
 app.use("/analytics", analyticsRouter);
 app.use("/leaderboard", leaderboardRouter);
+app.use("/licensing", licensingRouter);
 app.use("/uploads", express.static(UPLOAD_ROOT));
 app.use("/admin", adminRouter);
 
@@ -58,6 +61,7 @@ setupSocketServer(httpServer);
 
 httpServer.listen(PORT, () => {
   console.log(`[api] TikGames API listening on http://localhost:${PORT}`);
+  void startLicenseBot();
   console.log("[api] Auth is live: /auth/register, /auth/login, /auth/refresh, /auth/me");
   console.log(
     "[api] Platform routes mounted: /live, /products, /games, /analytics, /leaderboard, /uploads, /admin. Socket.io namespaces: /internal, /overlay, /dashboard",

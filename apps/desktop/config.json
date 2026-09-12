@@ -1,0 +1,5 @@
+{
+  "_comment": "Where the shipped app points. Change these to your deployed URLs before building the exe (or ship this file next to it). apiUrl must be the API that runs the licensing routes + Discord bot; dashboardUrl is the streamer dashboard.",
+  "apiUrl": "http://localhost:4000",
+  "dashboardUrl": "http://localhost:5173"
+}
