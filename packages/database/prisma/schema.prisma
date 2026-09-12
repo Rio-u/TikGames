@@ -1,11 +1,10 @@
-// TikGames — core database schema (MongoDB).
-// See root README.md for the architecture this schema supports.
+// TikGames — core database schema (PostgreSQL, hosted on Supabase).
+// See root README.md for the architecture this schema supports, and DEPLOY.md §1 for the
+// Supabase connection string that DATABASE_URL points at (one cloud DB for dev and production).
 //
-// MongoDB has no foreign keys, so relations are emulated by Prisma Client itself
-// (relationMode = "prisma") rather than enforced by the database — onDelete: Cascade etc.
-// are executed as separate queries by Prisma, not DB-level constraints.
-// MongoDB also requires the server to run as a replica set for Prisma's transactions
-// (nested writes) to work — see start-mongo.bat, which initializes a single-node replica set.
+// Postgres enforces relations as real foreign keys: onDelete: Cascade and friends run at the
+// database level, and Prisma's transactions / nested writes work without any special server
+// configuration.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,9 +12,8 @@ generator client {
 }
 
 datasource db {
-  provider     = "mongodb"
-  url          = env("DATABASE_URL")
-  relationMode = "prisma"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -97,7 +95,7 @@ enum AlertStatus {
 }
 
 model User {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @default(cuid())
   email        String   @unique
   username     String   @unique // handle, distinct from displayName — ASCII only
   passwordHash String? // null if the account was created via OAuth only
@@ -126,8 +124,8 @@ model User {
 }
 
 model RefreshToken {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String    @db.ObjectId
+  id        String    @id @default(cuid())
+  userId    String   
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash String    @unique
   userAgent String?
@@ -140,8 +138,8 @@ model RefreshToken {
 }
 
 model TikTokAccount {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String    @unique @db.ObjectId
+  id             String    @id @default(cuid())
+  userId         String    @unique
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   username       String // @handle to watch live
   tiktokUserId   String? // set only if connected via TikTok OAuth login
@@ -157,8 +155,8 @@ model TikTokAccount {
 }
 
 model DiscordAccount {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String    @unique @db.ObjectId
+  id             String    @id @default(cuid())
+  userId         String    @unique
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   discordUserId  String // Discord's numeric snowflake id
   username       String // Discord handle at time of connect
@@ -173,8 +171,8 @@ model DiscordAccount {
 }
 
 model Subscription {
-  id               String             @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String             @unique @db.ObjectId
+  id               String             @id @default(cuid())
+  userId           String             @unique
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   status           SubscriptionStatus @default(TRIAL)
   trialEndsAt      DateTime
@@ -186,7 +184,7 @@ model Subscription {
   trialGamesLimit  Int                @default(3)
   trialGamesUsed   Int                @default(0)
   currentPeriodEnd DateTime?
-  activatedById    String?            @db.ObjectId
+  activatedById    String?           
   activatedBy      User?              @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id])
   activatedAt      DateTime?
   createdAt        DateTime           @default(now())
@@ -196,12 +194,12 @@ model Subscription {
 }
 
 model Payment {
-  id             String          @id @default(auto()) @map("_id") @db.ObjectId
-  subscriptionId String          @db.ObjectId
+  id             String          @id @default(cuid())
+  subscriptionId String         
   subscription   Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   provider       PaymentProvider
   providerRef    String?
-  amount         Int // stored in minor currency units (e.g. cents/qirsh) — MongoDB has no Decimal type
+  amount         Int // stored in minor currency units (e.g. cents/qirsh) to avoid float money bugs
   currency       String          @default("USD")
   status         PaymentStatus   @default(PENDING)
   rawPayload     Json?
@@ -211,8 +209,8 @@ model Payment {
 }
 
 model LiveSession {
-  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
-  userId              String             @db.ObjectId
+  id                  String             @id @default(cuid())
+  userId              String            
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   platform            LiveSourcePlatform @default(TIKTOK)
   channelUsername     String
@@ -232,8 +230,8 @@ model LiveSession {
 }
 
 model GameConfig {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
+  id        String   @id @default(cuid())
+  userId    String  
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   gameType  GameType
   name      String
@@ -247,10 +245,10 @@ model GameConfig {
 }
 
 model GameSession {
-  id            String            @id @default(auto()) @map("_id") @db.ObjectId
-  liveSessionId String            @db.ObjectId
+  id            String            @id @default(cuid())
+  liveSessionId String           
   liveSession   LiveSession       @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
-  gameConfigId  String?           @db.ObjectId
+  gameConfigId  String?          
   gameConfig    GameConfig?       @relation(fields: [gameConfigId], references: [id])
   gameType      GameType
   status        GameSessionStatus @default(PENDING)
@@ -265,8 +263,8 @@ model GameSession {
 }
 
 model GameSessionParticipant {
-  id            String      @id @default(auto()) @map("_id") @db.ObjectId
-  gameSessionId String      @db.ObjectId
+  id            String      @id @default(cuid())
+  gameSessionId String     
   gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
   viewerHandle  String // TikTok commenter username — no separate viewer account
   displayName   String?
@@ -279,28 +277,28 @@ model GameSessionParticipant {
 }
 
 model Alert {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  id            String        @id @default(cuid())
   severity      AlertSeverity
   status        AlertStatus   @default(OPEN)
   source        String // e.g. "tiktok-connector"
-  liveSessionId String?       @db.ObjectId
+  liveSessionId String?      
   liveSession   LiveSession?  @relation(fields: [liveSessionId], references: [id], onDelete: SetNull)
   message       String
   detail        Json?
   createdAt     DateTime      @default(now())
   resolvedAt    DateTime?
-  resolvedById  String?       @db.ObjectId
+  resolvedById  String?      
   resolvedBy    User?         @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
 
   @@index([status, severity])
 }
 
 model AdminActionLog {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  adminUserId  String   @db.ObjectId
+  id           String   @id @default(cuid())
+  adminUserId  String  
   adminUser    User     @relation("AdminActor", fields: [adminUserId], references: [id])
   action       String // e.g. "SUBSCRIPTION_ACTIVATED"
-  targetUserId String?  @db.ObjectId
+  targetUserId String? 
   metadata     Json?
   createdAt    DateTime @default(now())
 
@@ -310,9 +308,9 @@ model AdminActionLog {
 // Platform-wide (not per-user) pool of background images for the Trivia game, curated by
 // admins only — every streamer's Trivia session draws a random image from this same pool.
 model TriviaBackgroundImage {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @default(cuid())
   url          String
-  uploadedById String   @db.ObjectId
+  uploadedById String  
   uploadedBy   User     @relation("TriviaImageUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 }
@@ -320,9 +318,9 @@ model TriviaBackgroundImage {
 // Platform-wide (not per-user) pool of background images for the Speed Word game — same
 // precedent as TriviaBackgroundImage, every streamer's session draws a random image from here.
 model SpeedWordBackgroundImage {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @default(cuid())
   url          String
-  uploadedById String   @db.ObjectId
+  uploadedById String  
   uploadedBy   User     @relation("SpeedWordImageUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 }
@@ -330,10 +328,10 @@ model SpeedWordBackgroundImage {
 // Platform-wide per-game kill switch, admin-controlled. A missing row means enabled (fail-open,
 // so this never blocks a GameType nobody has touched) — see POST /games/session/start.
 model GameToggle {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @id @default(cuid())
   gameType    GameType @unique
   enabled     Boolean  @default(true)
-  updatedById String?  @db.ObjectId
+  updatedById String? 
   updatedAt   DateTime @updatedAt
 }
 
@@ -342,29 +340,29 @@ model GameToggle {
 // "use the hardcoded GameDefinition in apps/dashboard/src/data/games.ts instead" — same fail-open
 // precedent as GameToggle. emoji/gradient/route are never part of this model (stay hardcoded).
 model GameContent {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  id            String   @id @default(cuid())
   gameType      GameType @unique
   nameAr        String?
   descriptionAr String?
   bioAr         String? // "شرح اللعبة" — prose, rendered whitespace-pre-line on the control page
   rulesAr       String? // "قواعد التشغيل" — plain multi-line string, one rule per line, split into a bullet list client-side
   imageUrl      String?
-  updatedById   String?  @db.ObjectId
+  updatedById   String? 
   updatedAt     DateTime @updatedAt
 }
 
 // Platform-wide dashboard homepage content — a single admin-managed row (the `key` unique field
-// is always "homepage", giving this a stable target to upsert/query without a real singleton
-// primitive in Mongo). `featuredGameTypes` picks up to 3 games for the dashboard's "spotlight"
+// is always "homepage", giving this a stable target to upsert/query without needing a real
+// singleton primitive). `featuredGameTypes` picks up to 3 games for the dashboard's "spotlight"
 // row above the full library grid; both fields are independently optional — an unset heroTitle
 // just means no hero banner, an empty featuredGameTypes just means no spotlight row, and the
 // dashboard falls back to exactly today's layout until an admin sets either.
 model HomepageSettings {
-  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  id                String     @id @default(cuid())
   key               String     @unique @default("homepage")
   heroTitle         String?
   featuredGameTypes GameType[]
-  updatedById       String?    @db.ObjectId
+  updatedById       String?   
   updatedAt         DateTime   @updatedAt
 }
 
@@ -373,8 +371,8 @@ model HomepageSettings {
 /// of `settings` is validated against that widget's `fields` in OVERLAY_WIDGET_CATALOG rather
 /// than by a column per option — a new field in the catalog must not require a migration.
 model OverlayWidgetConfig {
-  id       String @id @default(auto()) @map("_id") @db.ObjectId
-  userId   String @db.ObjectId
+  id       String @id @default(cuid())
+  userId   String
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Matches OverlayWidgetId in shared-types. Kept as a String, not an enum, so adding a widget
   /// is a catalog edit rather than a schema migration + db push.
@@ -393,10 +391,10 @@ model OverlayWidgetConfig {
 // in via a method that's since been disabled — see POST /register, GET /tiktok|discord/start, and
 // the new-account branch of both OAuth callbacks in apps/api/src/routes/auth.ts.
 model AuthMethodToggle {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  id          String     @id @default(cuid())
   method      AuthMethod @unique
   enabled     Boolean    @default(true)
-  updatedById String?    @db.ObjectId
+  updatedById String?   
   updatedAt   DateTime   @updatedAt
 }
 
@@ -404,14 +402,14 @@ model AuthMethodToggle {
 // snapshotted onto Subscription.trialGamesLimit at signup — changing it here only affects accounts
 // registered afterward.
 model PlatformSettings {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                String   @id @default(cuid())
   key               String   @unique @default("platform")
   defaultTrialGames Int      @default(3)
   /// Which of the nine pre-roll 3D designs plays before every game, platform-wide. Admin-only and
   /// deliberately not a per-streamer setting: it is part of the product's look, not a preference.
   /// Null means the registry default (Energy Tunnel).
   countdownDesignId String?
-  updatedById       String?  @db.ObjectId
+  updatedById       String? 
   updatedAt         DateTime @updatedAt
 }
 
@@ -419,13 +417,13 @@ model PlatformSettings {
 // updateMany guarded on redeemedById: null (see POST /account/redeem-code) — never read-then-write,
 // so two simultaneous redemption attempts on the same code can't both succeed.
 model RedemptionCode {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  id           String    @id @default(cuid())
   code         String    @unique
   gamesGranted Int
-  createdById  String    @db.ObjectId
+  createdById  String   
   createdBy    User      @relation("RedemptionCodeCreator", fields: [createdById], references: [id])
   createdAt    DateTime  @default(now())
-  redeemedById String?   @db.ObjectId
+  redeemedById String?  
   redeemedBy   User?     @relation("RedemptionCodeRedeemer", fields: [redeemedById], references: [id])
   redeemedAt   DateTime?
 }
@@ -436,8 +434,8 @@ model RedemptionCode {
 // incrementally from apps/api/src/routes/games.ts's generic onChange callback, never recomputed
 // from scratch — see apps/api/src/lib/leaderboard.ts.
 model ViewerRanking {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  streamerId   String   @db.ObjectId
+  id           String   @id @default(cuid())
+  streamerId   String  
   streamer     User     @relation(fields: [streamerId], references: [id], onDelete: Cascade)
   viewerHandle String
   displayName  String
@@ -457,9 +455,9 @@ model ViewerRanking {
 // random when it starts (see MusicalChairsEngine); an empty pool just means no music, not a
 // blocked session — music is atmosphere, not required content.
 model MusicalChairsTrack {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @default(cuid())
   url          String
-  uploadedById String   @db.ObjectId
+  uploadedById String  
   uploadedBy   User     @relation("MusicTrackUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 }
@@ -482,7 +480,7 @@ enum LicenseDeviceStatus {
 }
 
 model LicenseDevice {
-  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  id          String              @id @default(cuid())
   /// sha256 of the device's stable hardware attributes — the identity, and unique per machine.
   machineHash String              @unique
   /// Optional label the person typed at activation ("لابتوب البيت"), for your own recognition.
@@ -509,7 +507,7 @@ model LicenseDevice {
 // registrations, heartbeats that changed something, approvals, blocks — never the contents of the
 // user's machine.
 model LicenseAuditEvent {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @id @default(cuid())
   machineHash String?
   type        String // register | approve | block | kill | reactivate | heartbeat-blocked
   detail      Json?

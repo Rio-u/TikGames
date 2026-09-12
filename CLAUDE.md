@@ -10,12 +10,12 @@ handles/names can be Latin or Arabic, and bidi text next to fixed RTL chrome bre
 
 ## Monorepo layout
 
-- `apps/api` — Express + Socket.io + Prisma/MongoDB. Owns all game logic, auth, and realtime fan-out.
+- `apps/api` — Express + Socket.io + Prisma/PostgreSQL. Owns all game logic, auth, and realtime fan-out.
 - `apps/dashboard` — React/Vite/Tailwind. Streamer-facing: auth, account, game library, per-game control pages.
 - `apps/overlay` — React/Vite. OBS browser-source facing, token-scoped, read-only view of the same state.
 - `apps/tiktok-connector` — wraps the unofficial `tiktok-live-connector` lib, normalizes TikTok events into `LiveEvent`s over the `/internal` socket namespace.
 - `packages/shared-types` — single source of truth for every cross-app contract (game state shapes, socket event names).
-- `packages/database` — Prisma schema, MongoDB (`relationMode = "prisma"`).
+- `packages/database` — Prisma schema, PostgreSQL (Supabase). One cloud database for both local dev and production.
 
 ## How a game actually runs
 
@@ -143,7 +143,7 @@ pre-abstract for a third game that doesn't exist yet):
 
 ## Admin controls
 
-- **Per-game kill switch** — `GameToggle` (one row per `GameType`, Mongo collection, no seed needed — a missing row means enabled, fail-open). Admin toggles it from `/d7admind7`'s "محتوى الألعاب" tab; `POST /games/session/start` is the real gate (checked server-side before creating a session); `useDisabledGames` just mirrors that into the UI so a disabled game reads as "متوقفة مؤقتاً" on the library card and control page instead of surfacing a raw 400. Disabling only blocks *new* sessions — it never touches one already running. Keyed by `GameType`, so a new game needs zero extra wiring here.
+- **Per-game kill switch** — `GameToggle` (one row per `GameType`, no seed needed — a missing row means enabled, fail-open). Admin toggles it from `/d7admind7`'s "محتوى الألعاب" tab; `POST /games/session/start` is the real gate (checked server-side before creating a session); `useDisabledGames` just mirrors that into the UI so a disabled game reads as "متوقفة مؤقتاً" on the library card and control page instead of surfacing a raw 400. Disabling only blocks *new* sessions — it never touches one already running. Keyed by `GameType`, so a new game needs zero extra wiring here.
 - **Admin action log** — every admin mutation in `apps/api/src/routes/admin.ts` goes through the shared `logAdminAction()` helper (writes `AdminActionLog`, viewable in the admin page's "سجل النشاط" tab). Any new admin endpoint should call it too, same pattern as the existing ones.
 - **Discord mirror** — optional, off by default. Set `DISCORD_ADMIN_LOG_WEBHOOK_URL` (apps/api env) to a Discord incoming-webhook URL and `notifyDiscord()` (`apps/api/src/lib/discordWebhook.ts`) mirrors every admin action plus every WARNING/CRITICAL alert there. Unset = silent no-op, never blocks the request that triggered it.
 

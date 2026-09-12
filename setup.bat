@@ -1,17 +1,20 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 title TikGames - تثبيت وتشغيل
 
-rem  دبل كليك على الملف ده وخلاص. بيثبّت كل حاجة ناقصة (Node، pnpm، MongoDB)، بيجهّز
-rem  قاعدة البيانات والحسابات، وبيشغّل المشروع كله.
+rem  دبل كليك على الملف ده وخلاص. بيثبّت كل حاجة ناقصة (Node و pnpm)، بيجهّز
+rem  الحسابات والخلفيات على Supabase، وبيشغّل المشروع كله.
 rem
-rem  الشغل الحقيقي في scripts\setup.ps1 — الملف ده بس بيرفع الصلاحيات ويشغّله، لأن تثبيت
-rem  MongoDB محتاج صلاحيات أدمن.
+rem  قاعدة البيانات بقت Supabase (Postgres) على السحابة — مفيش داتا بيز بتتثبت محلياً؛
+rem  محتاج بس DATABASE_URL يكون متظبط في apps\api\.env و packages\database\.env.
+rem
+rem  الشغل الحقيقي في scripts\setup.ps1 — الملف ده بس بيرفع الصلاحيات ويشغّله، عشان تثبيت
+rem  Node محتاج صلاحيات أدمن.
 
 net session >nul 2>&1
 if errorlevel 1 (
   echo.
-  echo   محتاجين صلاحيات أدمن عشان نثبّت MongoDB — هيطلع لك طلب موافقة، اضغط "نعم".
+  echo   محتاجين صلاحيات أدمن عشان نثبّت المتطلبات — هيطلع لك طلب موافقة، اضغط "نعم".
   echo.
   powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
   exit /b

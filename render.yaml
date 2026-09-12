@@ -13,7 +13,8 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      # MongoDB Atlas connection string (mongodb+srv://...). Must be a replica set — Atlas M0 is.
+      # Supabase (Postgres) connection string. Use the Session pooler URI (port 5432, IPv4) —
+      # Render is IPv4-only, so the direct db.<ref>.supabase.co host won't resolve there.
       - key: DATABASE_URL
         sync: false
       # Secrets — Render generates strong random values; both api and connector read the same var.

@@ -56,13 +56,13 @@ apps/
   tiktok-connector/   خدمة مستقلة، wrapper حوالين tiktok-live-connector
 packages/
   shared-types/       المصدر الوحيد لكل عقد مشترك (شكل حالة كل لعبة + أسماء أحداث السوكت)
-  database/           Prisma schema — MongoDB, relationMode = "prisma"
+  database/           Prisma schema — PostgreSQL (Supabase)
   config/             tsconfig مشترك
 ```
 
-- **الداتابيز**: MongoDB (لازم replica set حتى لو single-node عشان Prisma transactions)
+- **الداتابيز**: PostgreSQL على Supabase — قاعدة واحدة على السحابة للتطوير والنشر (مفيش داتا بيز محلية)
 - **الأوث**: bcryptjs + JWT (access + refresh)، مع OAuth لـ TikTok و Discord، و Cloudflare Turnstile اختياري كـ CAPTCHA
-- **البورتات محليًا**: API `4000` · Dashboard `5173` · Overlay `5174` · MongoDB `27018`
+- **البورتات محليًا**: API `4000` · Dashboard `5173` · Overlay `5174` (الداتابيز على Supabase)
 - **راوتس الـ API**: `/auth` · `/live` · `/games` · `/leaderboard` · `/uploads` · `/admin`
 - **Socket.io namespaces**: `/internal` (الكونكتور) · `/dashboard` (الستريمر) · `/overlay` (OBS)
 
@@ -72,7 +72,7 @@ packages/
 
 ## نموذج العمل
 
-كل حساب جديد بياخد **تجربة مجانية كاملة 3 أيام** أوتوماتيك (`Subscription.status: TRIAL`)، وبعدها `ACTIVE` / `EXPIRED` / `SUSPENDED`. التحويل لاشتراك مدفوع دلوقتي **إجراء أدمن يدوي** (`Payment.provider = MANUAL`)، بس الـ schema فيها `PAYMOB` و `PAYTABS` جاهزين لربط بوابة دفع حقيقية بعدين من غير إعادة هيكلة. المبالغ متخزنة كـ `Int` بالوحدة الصغرى (قروش) لأن Mongo مافيهاش `Decimal` في Prisma.
+كل حساب جديد بياخد **تجربة مجانية كاملة 3 أيام** أوتوماتيك (`Subscription.status: TRIAL`)، وبعدها `ACTIVE` / `EXPIRED` / `SUSPENDED`. التحويل لاشتراك مدفوع دلوقتي **إجراء أدمن يدوي** (`Payment.provider = MANUAL`)، بس الـ schema فيها `PAYMOB` و `PAYTABS` جاهزين لربط بوابة دفع حقيقية بعدين من غير إعادة هيكلة. المبالغ متخزنة كـ `Int` بالوحدة الصغرى (قروش) عشان نتجنب أخطاء الفاصلة العائمة في الفلوس.
 
 ## قواعد ومبادئ لازم تحترمها
 
@@ -98,9 +98,10 @@ TikTok **مالهاش API رسمي** لقراءة كومنتات اللايف ف
 ```bash
 pnpm install
 # انسخ .env.example → .env في: packages/database و apps/{api,dashboard,overlay,tiktok-connector}
-start-mongo.bat      # MongoDB على بورت 27018 + replica set rs0
-pnpm db:push         # Prisma db push — مفيش migrations في Mongo
-start.bat            # يشغّل: MongoDB + api + tiktok-connector + dashboard + overlay
+# حط رابط Supabase (Session pooler) في DATABASE_URL جوه .env بتوع packages/database و apps/api
+pnpm db:push         # Prisma db push — بينشئ كل الجداول على Supabase
+cd apps/api && node seed.mjs   # الحسابات (d7 / nfnf) + خلفيات الألعاب
+start.bat            # يشغّل: api + tiktok-connector + dashboard + overlay
 ```
 
 مفيش test framework متركب — التحقق يدوي بس المفروض يكون حقيقي: `tsc --noEmit` أولًا، وبعدين سكربت Node واحد ذري بيستخدم `fetch` + `socket.io-client` على الـ dev API (تسجيل حساب مؤقت → بدء لايف → بدء لعبة → إرسال كومنتات محاكاة عن طريق `/live/:id/simulate-comment` → التأكد من بثوث `game:state`). سكربت واحد أحسن من أوامر متفرقة لأن التأخير بين الاستدعاءات بيكفي إنه يفوّت نافذة مرحلة قصيرة ويدي نتيجة خاطئة.

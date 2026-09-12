@@ -24,9 +24,9 @@ streamer's live chat; the streamer runs the result as a transparent Browser Sour
                                       │                       │ Kick later)            │
                                       ▼                       └──────────────────────┘
                             ┌───────────────────┐                      │
-                            │   MongoDB          │                      │ health pings /
-                            │  (Prisma, packages/│                      │ connector:alert on
-                            │   database)         │                      │ failure → Alert row
+                            │   PostgreSQL        │                      │ health pings /
+                            │  (Supabase; Prisma, │                      │ connector:alert on
+                            │   packages/database)│                      │ failure → Alert row
                             └───────────────────┘                      │  → surfaced in /admin
 ```
 
@@ -76,48 +76,37 @@ tikgames/
     database/              Prisma schema + generated client (shared by apps/api)
     shared-types/           LiveSourceConnector contract, WS event DTOs, game state types
     config/                 Shared tsconfig base
-  start.bat                  Runs the whole stack: MongoDB + api + tiktok-connector + dashboard + overlay
-  start-mongo.bat            Starts just MongoDB (native, no Docker) — start.bat calls this
+  setup.bat                  One-click: installs Node/pnpm, sets up the DB + accounts, runs everything
+  start.bat                  Runs the whole stack: api + tiktok-connector + dashboard + overlay
 ```
 
 ## Local setup
 
-Database is **MongoDB**, run natively for now (no Docker). Prisma's MongoDB connector requires
-the server to run as a replica set (even a single-node one) for transactions to work.
+Database is **PostgreSQL on [Supabase](https://supabase.com)** — one cloud database shared by
+local development and production. Nothing installs a database on your machine; you only need a
+`DATABASE_URL` pointing at your Supabase project (see [DEPLOY.md](DEPLOY.md) §1 for creating one
+and getting the Session-pooler connection string).
 
 ```bash
 pnpm install
-cp packages/database/.env.example packages/database/.env
-start-mongo.bat                      # first time: bring the DB up so db:push has something to push to
-pnpm db:push                         # prisma db push — Mongo has no SQL migrations
-start.bat                            # day to day: starts MongoDB + every app, each in its own window
+cp packages/database/.env.example packages/database/.env   # then paste your Supabase URL in
+cp apps/api/.env.example apps/api/.env                      # ...and here too
+pnpm db:push                         # prisma db push — creates every table on Supabase
+cd apps/api && node seed.mjs         # accounts (d7 / nfnf) + game backgrounds
+start.bat                            # day to day: starts every app, each in its own window
 ```
 
-`start.bat` is the one-click "run everything" entry point: it starts MongoDB (via
-`start-mongo.bat`), then opens a console window per app (`api`, `tiktok-connector`, `dashboard`,
-`overlay`) running that app's `dev` script. **Phase 1 note:** the app `dev` scripts are still
-placeholders (`apps/*/package.json`) — their windows will just print a message until the actual
-servers are implemented in the next phases. Once they are, no changes to `start.bat` are needed;
-it already runs the real `pnpm --filter <app> dev` for each one. Close a window to stop that
-service; re-running `start.bat` is safe.
+Or just double-click **`setup.bat`** — it installs Node/pnpm if missing, installs packages,
+checks `DATABASE_URL` is set, pushes the schema, seeds the accounts and backgrounds, and starts
+all four apps. (It refuses to continue with the placeholder `DATABASE_URL` still in `.env` and
+tells you exactly where to paste your Supabase string.)
 
-Run `start-mongo.bat` on its own if you only need the database (e.g. to run `pnpm db:push` or
-`pnpm db:studio` without booting every app).
+`start.bat` opens a console window per app (`api`, `tiktok-connector`, `dashboard`, `overlay`)
+running that app's `dev` script. Close a window to stop that service; re-running `start.bat` is
+safe.
 
-`start-mongo.bat` looks for `mongod` on your `PATH`, falling back to the standard
-`C:\Program Files\MongoDB\Server\<version>\bin\mongod.exe` install location. It stores data in
-`.mongodb-data/` (gitignored) at the repo root, runs on **port 27018** (not the default 27017),
-and opens mongod in its own console window — close that window to stop the server. Re-running
-the script is safe; it detects an already-running instance and an already-initialized replica
-set.
-
-> Port 27018 is deliberate: if MongoDB Community Server is installed on Windows, its installer
-> registers a `MongoDB` Windows service that auto-starts on the default port 27017 *without* a
-> replica set — which Prisma requires. Rather than reconfigure that system-wide service, this
-> project runs its own isolated instance on 27018.
-
-A Docker-based setup (Postgres or Mongo) may replace this later — this is the "for now" local
-path per explicit request, not a permanent architectural choice.
+Because the database lives on Supabase, `pnpm db:studio` and `pnpm db:push` work from anywhere
+with your `DATABASE_URL` set — no local server to bring up first.
 
 ## Environment variables (later phases)
 
@@ -126,7 +115,7 @@ placeholders now so nothing is a surprise later:
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `packages/database`, `apps/api` | MongoDB connection string (must include `?replicaSet=rs0` locally) |
+| `DATABASE_URL` | `packages/database`, `apps/api` | PostgreSQL (Supabase) connection string — use the Session-pooler URI |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | `apps/api` | Auth token signing |
 | `EULER_STREAM_API_KEY` | `apps/tiktok-connector` | TikTok signing provider (free tier works to start) |
 | `TIKTOK_OAUTH_CLIENT_KEY`, `TIKTOK_OAUTH_CLIENT_SECRET` | `apps/api` | Optional "Login with TikTok" |
@@ -138,5 +127,5 @@ placeholders now so nothing is a surprise later:
 3-day full-access trial (no admin action needed). Converting to a paid subscription is a manual
 admin action for now (`Payment.provider = MANUAL`); the schema already has `PAYMOB` and
 `PAYTABS` as provider options so a real gateway can be wired in later without restructuring
-the schema. `Payment.amount` is stored as an `Int` in minor currency units (cents/qirsh) since
-MongoDB has no native `Decimal` type in Prisma.
+the schema. `Payment.amount` is stored as an `Int` in minor currency units (cents/qirsh) to avoid
+floating-point money bugs.

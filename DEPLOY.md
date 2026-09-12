@@ -1,4 +1,4 @@
-# نشر TikGames مجاناً (Vercel + Render + MongoDB Atlas)
+# نشر TikGames مجاناً (Vercel + Render + Supabase)
 
 المشروع 4 تطبيقات، مش تطبيق واحد، وعشان كده **ما ينفعش يترفع كله على Vercel**:
 
@@ -8,12 +8,12 @@
 | `apps/overlay` | موقع React ثابت | **Vercel** |
 | `apps/api` | سيرفر Express + Socket.io (حالة في الذاكرة) | **Render** |
 | `apps/tiktok-connector` | خدمة دائمة تتصل بتيك توك | **Render** (نفس خدمة الـ api) |
-| قاعدة البيانات | MongoDB (replica set) | **MongoDB Atlas** |
+| قاعدة البيانات | PostgreSQL | **Supabase** |
 
 > **ليه مش Vercel للباك اند؟** Vercel serverless — دوال قصيرة بتقوم وتنام. الـ api بيعتمد على Socket.io
 > (اتصالات دائمة) وحالة ألعاب في الذاكرة، ودول محتاجين عملية واحدة ثابتة شغالة على طول.
 
-الترتيب مهم: **Atlas → Render → Vercel** (كل خطوة بتديك قيمة محتاجها في اللي بعدها).
+الترتيب مهم: **Supabase → Render → Vercel** (كل خطوة بتديك قيمة محتاجها في اللي بعدها).
 
 ---
 
@@ -24,28 +24,34 @@
 
 ```bash
 git add -A
-git commit -m "Add production deploy config (Render + Vercel + Atlas)"
+git commit -m "Add production deploy config (Render + Vercel + Supabase)"
 git push origin main
 ```
 
 ---
 
-## 1) قاعدة البيانات — MongoDB Atlas (مجاني)
+## 1) قاعدة البيانات — Supabase (مجاني)
 
-1. اعمل حساب على https://www.mongodb.com/cloud/atlas → أنشئ **Cluster** واختَر **M0 (Free)**.
-2. **Database Access** → أضف مستخدم بـ username/password (احفظهم).
-3. **Network Access** → أضف `0.0.0.0/0` (اسمح لأي IP — لأن IP بتاع Render بيتغيّر).
-4. **Connect → Drivers** → انسخ رابط الاتصال، شكله:
+قاعدة بيانات واحدة على السحابة بتخدم التطوير المحلي والنشر مع بعض — مفيش داتا بيز بتتثبت على جهازك.
+
+1. اعمل حساب على https://supabase.com → **New project**. اختَر اسم و**Database Password** قوي
+   (احفظه) والـ Region الأقرب ليك. استنى دقيقة لحد ما المشروع يجهز.
+2. من صفحة المشروع دوس **Connect** (فوق) → تبويب **ORM / Prisma** (أو **App Frameworks**).
+   هتلاقي رابطين — انسخ رابط الـ **Session pooler** (بورت `5432`)، شكله:
    ```
-   mongodb+srv://<user>:<password>@cluster0.xxxx.mongodb.net/tikgames?retryWrites=true&w=majority
+   postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
    ```
-   - حط اسم المستخدم والباسورد مكان `<user>:<password>`.
-   - أضف `tikgames` كاسم القاعدة قبل الـ `?` (زي اللي فوق).
+   - حط الـ **Database Password** بتاعك مكان `[PASSWORD]`.
+   - الـ Session pooler بيشتغل على IPv4، فبيتوافق مع Render والتطوير المحلي الاتنين — استعمل نفس
+     الرابط في الحالتين.
    - احتفظ بالرابط ده — هو الـ `DATABASE_URL`.
-5. جهّز الجداول (schema). من جهازك، شغّل مرة واحدة:
+3. جهّز الجداول (schema) وازرع الحسابات والخلفيات. من جهازك، حط الرابط في
+   `packages/database/.env` و `apps/api/.env`، وبعدين شغّل مرة واحدة:
    ```bash
-   DATABASE_URL="mongodb+srv://...الرابط بتاعك..." pnpm db:push
+   pnpm db:push                 # ينشئ كل الجداول على Supabase
+   cd apps/api && node seed.mjs # الحسابات (d7 / nfnf) + خلفيات الألعاب
    ```
+   لو Prisma اشتكى إنه مش لاقي جداول موجودة، ده طبيعي أول مرة — `db push` بيعملها.
 
 ---
 
@@ -55,7 +61,7 @@ git push origin main
 2. **New → Blueprint** → اختَر ريبو `TikGames`. Render هيقرأ `render.yaml` تلقائياً ويعمل خدمة
    اسمها `tikgames-backend`.
 3. قبل ما تعمل Deploy، املأ المتغيرات السرية (اللّي معلَّمة `sync: false`):
-   - `DATABASE_URL` = رابط Atlas من خطوة 1.
+   - `DATABASE_URL` = رابط Supabase (الـ Session pooler) من خطوة 1.
    - `CORS_ORIGIN` = **سيبها فاضية دلوقتي** — هترجع تملأها في خطوة 4 بعد ما ياخد الـ Vercel روابط.
    - `DASHBOARD_URL` = هتملأها كمان في خطوة 4.
    - `EULER_STREAM_API_KEY` = مفتاح مجاني من https://www.eulerstream.com — لازم **للبث الحقيقي** من
@@ -128,7 +134,8 @@ git push origin main
   مجاني كل 10 دقايق على `/health`) عشان تفضّلها صاحية.
 - **رفع الصور (خلفيات التريفيا):** ملفات Render المرفوعة **بتتمسح** مع كل redeploy (القرص مؤقّت). لو
   محتاج رفع صور ثابت، محتاج تخزين خارجي (S3/Cloudinary) لاحقاً.
-- **Atlas M0:** 512 ميجا تخزين — كفاية للبداية.
+- **Supabase Free:** 500 ميجا تخزين لقاعدة البيانات — كفاية للبداية. (المشروع بيتوقف مؤقتاً
+  بعد أسبوع خمول كامل على الخطة المجانية — أول زيارة بترجّعه.)
 - **البث الحقيقي من تيك توك:** محتاج `EULER_STREAM_API_KEY` (نسخة مجانية بحد استخدام). التعليقات
   الوهمية بتشتغل من غيره.
 

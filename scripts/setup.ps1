@@ -1,12 +1,12 @@
 ﻿<#
   TikGames — تثبيت وتشغيل كامل من الصفر على ويندوز.
 
-  بيتنده من setup.bat (اللي بيرفع الصلاحيات ويظبط ترميز الكونسول). ما ينفعش يتشغل لوحده
-  بالدبل كليك — لازم يعدّي على الـ bat.
+  بيتنده من setup.bat (اللي بيظبط ترميز الكونسول). قاعدة البيانات بقت Supabase (Postgres)
+  على السحابة — مفيش داتا بيز محلية تتثبت أو تتشغّل خالص، بس محتاج DATABASE_URL يبقى مظبوط.
 
-  بيعمل بالترتيب: يتأكد من Node و pnpm و MongoDB (وينزّلهم بـ winget لو ناقصين) ثم pnpm install
-  ثم ينسخ ملفات .env ثم يشغّل MongoDB على بورت 27018 كـ replica set ثم prisma db push ثم
-  seed (الحسابات + الخلفيات) ثم يشغّل الأربع خدمات ثم يفتح المتصفح.
+  بيعمل بالترتيب: يتأكد من Node و pnpm (وينزّلهم بـ winget لو ناقصين) ثم pnpm install ثم
+  ينسخ ملفات .env ثم يتأكد إن DATABASE_URL متظبط على Supabase ثم prisma db push ثم seed
+  (الحسابات + الخلفيات) ثم يشغّل الأربع خدمات ثم يفتح المتصفح.
 
   كل خطوة idempotent: لو حاجة متظبطة أصلاً بيعدّيها، فتشغيله تاني مفيهوش ضرر.
 #>
@@ -16,14 +16,12 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
 $LogDir = Join-Path $Root ".logs"
-$MongoPort = 27018
-$ReplSet = "rs0"
 $StepNum = 0
 
 function Write-Step([string]$Message) {
     $script:StepNum++
     Write-Host ""
-    Write-Host "[$script:StepNum/10] $Message" -ForegroundColor Cyan
+    Write-Host "[$script:StepNum/9] $Message" -ForegroundColor Cyan
 }
 function Write-Ok([string]$Message)   { Write-Host "      [تمام] $Message" -ForegroundColor Green }
 function Write-Info([string]$Message) { Write-Host "      $Message" -ForegroundColor Gray }
@@ -71,9 +69,8 @@ winget مش موجود على الجهاز ده.
    نزّل "App Installer" من متجر مايكروسوفت وبعدين شغّل setup.bat تاني:
    https://apps.microsoft.com/detail/9nblggh4nns1
 
-   أو نزّل البرامج دي بإيدك وبعدين شغّل setup.bat تاني:
+   أو نزّل Node.js LTS بإيدك وبعدين شغّل setup.bat تاني:
      Node.js LTS  ->  https://nodejs.org
-     MongoDB      ->  https://www.mongodb.com/try/download/community
 "@
 }
 Write-Ok "winget موجود"
@@ -120,34 +117,7 @@ if (Test-Cmd "pnpm") {
     Write-Ok "pnpm v$(& pnpm -v)"
 }
 
-# ---------------------------------------------------------------- 4. MongoDB
-Write-Step "بنتأكد من MongoDB"
-function Find-Mongod {
-    $cmd = Get-Command "mongod" -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    # مثبّت ويندوز بيحط mongod هنا وما بيضيفهوش للـ PATH — ندوّر على أحدث إصدار.
-    $dirs = Get-ChildItem "C:\Program Files\MongoDB\Server" -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending
-    foreach ($d in $dirs) {
-        $exe = Join-Path $d.FullName "bin\mongod.exe"
-        if (Test-Path $exe) { return $exe }
-    }
-    return $null
-}
-
-$mongod = Find-Mongod
-if (-not $mongod) {
-    Invoke-Winget "MongoDB.Server" "MongoDB Community Server"
-    $mongod = Find-Mongod
-    if (-not $mongod) {
-        Fail @"
-MongoDB اتنزّل بس mongod.exe مش لاقيينه.
-   نزّله بإيدك من https://www.mongodb.com/try/download/community وبعدين شغّل setup.bat تاني.
-"@
-    }
-}
-Write-Ok "mongod: $mongod"
-
-# ---------------------------------------------------------------- 5. الحزم
+# ---------------------------------------------------------------- 4. الحزم
 Write-Step "بنثبّت حزم المشروع (pnpm install) — أطول خطوة، استنى"
 # الأوامر الجاية بتعدّي على cmd عن قصد: PowerShell 5.1 بيلفّ أي سطر بيطلع على stderr من
 # برنامج خارجي في NativeCommandError أحمر مخيف، حتى لو البرنامج نجح — و prisma بيكتب
@@ -161,7 +131,7 @@ try {
 } finally { Pop-Location }
 Write-Ok "الحزم اتثبتت"
 
-# ---------------------------------------------------------------- 6. ملفات .env
+# ---------------------------------------------------------------- 5. ملفات .env
 Write-Step "بنجهّز ملفات .env"
 $envDirs = @(
     "apps\api",
@@ -182,62 +152,50 @@ foreach ($rel in $envDirs) {
 if ($copied -gt 0) { Write-Ok "اتنسخ $copied ملف .env من .env.example" }
 else { Write-Ok "ملفات .env موجودة أصلاً — سبناها زي ما هي" }
 
-# ---------------------------------------------------------------- 7. MongoDB شغال
-Write-Step "بنشغّل MongoDB على بورت $MongoPort"
-$mongosh = Join-Path $Root "node_modules\.bin\mongosh.cmd"
-if (-not (Test-Path $mongosh)) { Fail "mongosh مش موجود — يعني pnpm install ما خلصش صح." }
-
-function Test-MongoUp {
-    & $mongosh --quiet --port $MongoPort --eval "db.runCommand({ ping: 1 })" *> $null
-    return ($LASTEXITCODE -eq 0)
-}
-
-New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-if (Test-MongoUp) {
-    Write-Ok "MongoDB شغال أصلاً"
-} else {
-    $dataDir = Join-Path $Root ".mongodb-data"
-    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
-    # بورت 27018 مش الافتراضي عن قصد: مثبّت ويندوز بيسجّل خدمة على 27017 من غير replica set،
-    # و Prisma محتاج replica set. نسيب خدمة النظام في حالها ونشغّل نسخة خاصة بالمشروع.
-    Write-Info "بنشغّل mongod في الخلفية (اللوج في .logs\mongod.log)..."
-    $mongoLog = Join-Path $LogDir "mongod.log"
-    Start-Process -FilePath $mongod -WindowStyle Hidden -ArgumentList @(
-        "--dbpath", "`"$dataDir`"",
-        "--port", "$MongoPort",
-        "--replSet", $ReplSet,
-        "--bind_ip", "127.0.0.1",
-        "--logpath", "`"$mongoLog`""
-    )
-    $ready = $false
-    foreach ($i in 1..45) {
-        Start-Sleep -Seconds 1
-        if (Test-MongoUp) { $ready = $true; break }
+# ---------------------------------------------------------------- 6. DATABASE_URL
+Write-Step "بنتأكد إن DATABASE_URL متظبط على Supabase"
+# مفيش داتا بيز محلية — الاتنين (التطوير والنشر) بيستعملوا نفس مشروع Supabase على السحابة.
+# لازم DATABASE_URL يبقى فيه رابط الاتصال الحقيقي، مش الـ placeholder اللي جاي مع .env.example.
+$dbEnvFiles = @(
+    (Join-Path $Root "packages\database\.env"),
+    (Join-Path $Root "apps\api\.env")
+)
+$dbUrl = $null
+foreach ($f in $dbEnvFiles) {
+    if (-not (Test-Path $f)) { continue }
+    $line = Get-Content $f | Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } | Select-Object -First 1
+    if ($line) {
+        $dbUrl = ($line -replace '^\s*DATABASE_URL\s*=\s*', '').Trim().Trim('"')
+        break
     }
-    if (-not $ready) { Fail "MongoDB ما اشتغلش في الوقت المحدد. شوف .logs\mongod.log" }
-    Write-Ok "MongoDB اشتغل"
 }
-
-Write-Info "بنتأكد من الـ replica set..."
-& $mongosh --quiet --port $MongoPort --eval "try { rs.status() } catch (e) { rs.initiate() }" *> $null
-# rs.initiate() بترجع فوراً بس الانتخاب بياخد لحظة — Prisma بيرفض يكتب قبل ما يبقى فيه PRIMARY.
-foreach ($i in 1..30) {
-    & $mongosh --quiet --port $MongoPort --eval "if (!db.hello().isWritablePrimary) quit(1)" *> $null
-    if ($LASTEXITCODE -eq 0) { break }
-    Start-Sleep -Seconds 1
+$placeholder = ($null -eq $dbUrl) -or ($dbUrl -eq "") -or ($dbUrl -match '\[PASSWORD\]') -or ($dbUrl -match '\[PROJECT-REF\]')
+if ($placeholder) {
+    Fail @"
+DATABASE_URL لسه مش متظبط.
+   قاعدة البيانات دلوقتي Supabase (Postgres) على السحابة — مفيش حاجة تتثبت محلياً.
+   افتح مشروعك على https://supabase.com  ->  Project  ->  Connect  ->  ORM / Prisma
+   وانسخ رابط الـ "Direct connection" (بورت 5432) وحطّه في الملفين دول:
+     packages\database\.env
+     apps\api\.env
+   بالشكل ده:
+     DATABASE_URL="postgresql://postgres:كلمة-السر@db.xxxx.supabase.co:5432/postgres"
+   وبعدين شغّل setup.bat تاني.
+"@
 }
-Write-Ok "replica set جاهز ($ReplSet)"
+Write-Ok "DATABASE_URL متظبط"
 
-# ---------------------------------------------------------------- 8. قاعدة البيانات
+# ---------------------------------------------------------------- 7. قاعدة البيانات
 Write-Step "بنجهّز قاعدة البيانات (prisma db push)"
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Push-Location $Root
 try {
     & cmd /c "pnpm db:push 2>&1"
-    if ($LASTEXITCODE -ne 0) { Fail "prisma db push فشل." }
+    if ($LASTEXITCODE -ne 0) { Fail "prisma db push فشل. اتأكد إن DATABASE_URL بتاع Supabase صح ونت شغال." }
 } finally { Pop-Location }
 Write-Ok "قاعدة البيانات متطابقة مع الـ schema"
 
-# ---------------------------------------------------------------- 9. الحسابات والخلفيات
+# ---------------------------------------------------------------- 8. الحسابات والخلفيات
 Write-Step "بنعمل الحسابات ونزرع خلفيات الألعاب"
 Push-Location (Join-Path $Root "apps\api")
 try {
@@ -245,7 +203,7 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "الـ seed فشل." }
 } finally { Pop-Location }
 
-# ---------------------------------------------------------------- 10. تشغيل
+# ---------------------------------------------------------------- 9. تشغيل
 Write-Step "بنشغّل الخدمات الأربعة"
 function Start-Bg([string]$Filter, [string]$LogName) {
     Start-Process -FilePath "cmd.exe" -WindowStyle Hidden -WorkingDirectory $Root -ArgumentList "/c pnpm --filter $Filter dev > `".logs\$LogName.log`" 2>&1"

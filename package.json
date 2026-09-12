@@ -12,15 +12,12 @@
     "db:push": "pnpm --filter @tikgames/database run migrate",
     "db:studio": "pnpm --filter @tikgames/database run studio"
   },
-  "devDependencies": {
-    "mongosh": "^2.3.0"
-  },
+  "devDependencies": {},
   "pnpm": {
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
       "prisma",
-      "mongosh",
       "esbuild",
       "electron"
     ]

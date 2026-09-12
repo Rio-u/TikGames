@@ -206,7 +206,7 @@ export function setupSocketServer(httpServer: HttpServer): Server {
       }
     });
 
-    // Drawing's canvas strokes bypass the game:state pipeline entirely (no engine, no Mongo
+    // Drawing's canvas strokes bypass the game:state pipeline entirely (no engine, no DB
     // write) — mouse-move-frequency updates would hammer the DB if routed through the normal
     // onChange/persist path every other game mutation uses. A raw relay is all this needs:
     // broadcastToLive already fans out to both /overlay and /dashboard rooms for any event name.

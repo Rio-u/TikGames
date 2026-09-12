@@ -5,12 +5,12 @@ import { prisma } from "./prisma.js";
  * Adds `deltaScore` to a viewer's running total against one specific streamer — permanent,
  * independent per (streamer, viewer) pair (CLAUDE.md: rankings never merge across streamers).
  *
- * Deliberately not a naive `prisma.viewerRanking.upsert(...)`: Prisma's Mongo upsert is
- * find-then-create-or-update, not an atomic native operation, so two near-simultaneous scores
- * for the same never-before-seen viewer can both observe "no row yet" and both attempt `create`
- * — the second hits the real `@@unique([streamerId, viewerHandle])` index as a genuine P2002
- * error. Update-first (the common case once a row exists — `{ increment }` is a real atomic
- * Mongo operator), create-on-not-found, and retry-as-update if that create loses the race.
+ * Concurrency-safe without relying on upsert semantics: two near-simultaneous scores for the
+ * same never-before-seen viewer could both observe "no row yet" and both attempt `create`, and
+ * the second would hit the real `@@unique([streamerId, viewerHandle])` constraint as a P2002
+ * error. So: update-first (the common case once a row exists — `{ increment }` compiles to an
+ * atomic `col = col + delta`), create-on-not-found, and retry-as-update if that create loses the
+ * race.
  */
 export async function incrementViewerRanking(
   streamerId: string,

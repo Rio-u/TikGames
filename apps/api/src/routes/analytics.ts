@@ -33,8 +33,8 @@ router.get(
 
     const liveSessionIds = liveSessions.map((s) => s.id);
 
-    // Mongo has no join, so the game rows come back in one query and get folded per live session
-    // in memory. Fine at this scale (a creator's own history); revisit if it ever pages.
+    // The game rows come back in one query and get folded per live session in memory (rather than
+    // a relation include). Fine at this scale (a creator's own history); revisit if it ever pages.
     const gameSessions = liveSessionIds.length
       ? await prisma.gameSession.findMany({
           where: { liveSessionId: { in: liveSessionIds } },

@@ -412,10 +412,9 @@ router.post(
       return;
     }
 
-    // redeemedById/redeemedAt must be written as explicit null, not left absent — Prisma's MongoDB
-    // connector does not treat an absent optional field as equivalent to an explicit null when
-    // filtering (POST /auth/redeem-code's claim guard is `where: { redeemedById: null }`), so an
-    // absent field there would make the code permanently unredeemable.
+    // redeemedById/redeemedAt are written as explicit null: the code starts unredeemed, and
+    // POST /auth/redeem-code's claim guard filters on `where: { redeemedById: null }`. Being
+    // explicit here keeps that guard obviously correct at the write site.
     const redemptionCode = await prisma.redemptionCode.create({
       data: { code, gamesGranted, createdById: req.userId!, redeemedById: null, redeemedAt: null },
     });
