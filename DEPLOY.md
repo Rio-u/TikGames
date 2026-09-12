@@ -36,16 +36,17 @@ git push origin main
 
 1. اعمل حساب على https://supabase.com → **New project**. اختَر اسم و**Database Password** قوي
    (احفظه) والـ Region الأقرب ليك. استنى دقيقة لحد ما المشروع يجهز.
-2. من صفحة المشروع دوس **Connect** (فوق) → تبويب **ORM / Prisma** (أو **App Frameworks**).
-   هتلاقي رابطين — انسخ رابط الـ **Session pooler** (بورت `5432`)، شكله:
+2. من صفحة المشروع دوس **Connect** (فوق) → تبويب **ORM** (Prisma). هتلاقي **سطرين** — انسخهم
+   الاتنين وحط الـ **Database Password** بتاعك مكان `[YOUR-PASSWORD]`:
    ```
-   postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+   DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
+   DIRECT_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-[REGION].pooler.supabase.com:5432/postgres"
    ```
-   - حط الـ **Database Password** بتاعك مكان `[PASSWORD]`.
-   - الـ Session pooler بيشتغل على IPv4، فبيتوافق مع Render والتطوير المحلي الاتنين — استعمل نفس
-     الرابط في الحالتين.
-   - احتفظ بالرابط ده — هو الـ `DATABASE_URL`.
-3. جهّز الجداول (schema) وازرع الحسابات والخلفيات. من جهازك، حط الرابط في
+   - `DATABASE_URL` = الـ **transaction pooler** (بورت `6543`) — ده اللي التطبيق بيستخدمه وقت الشغل.
+   - `DIRECT_URL` = الـ **session pooler** (بورت `5432`) — ده اللي Prisma بيستخدمه في الـ migrations
+     و`db push`.
+   - الاتنين على IPv4، فنفس القيم بتشتغل محلياً وعلى Render.
+3. جهّز الجداول (schema) وازرع الحسابات والخلفيات. من جهازك، حط السطرين في
    `packages/database/.env` و `apps/api/.env`، وبعدين شغّل مرة واحدة:
    ```bash
    pnpm db:push                 # ينشئ كل الجداول على Supabase
@@ -61,7 +62,7 @@ git push origin main
 2. **New → Blueprint** → اختَر ريبو `TikGames`. Render هيقرأ `render.yaml` تلقائياً ويعمل خدمة
    اسمها `tikgames-backend`.
 3. قبل ما تعمل Deploy، املأ المتغيرات السرية (اللّي معلَّمة `sync: false`):
-   - `DATABASE_URL` = رابط Supabase (الـ Session pooler) من خطوة 1.
+   - `DATABASE_URL` و `DIRECT_URL` = السطرين من Supabase (خطوة 1).
    - `CORS_ORIGIN` = **سيبها فاضية دلوقتي** — هترجع تملأها في خطوة 4 بعد ما ياخد الـ Vercel روابط.
    - `DASHBOARD_URL` = هتملأها كمان في خطوة 4.
    - `EULER_STREAM_API_KEY` = مفتاح مجاني من https://www.eulerstream.com — لازم **للبث الحقيقي** من

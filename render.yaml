@@ -13,9 +13,12 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      # Supabase (Postgres) connection string. Use the Session pooler URI (port 5432, IPv4) —
-      # Render is IPv4-only, so the direct db.<ref>.supabase.co host won't resolve there.
+      # Supabase (Postgres) — from Connect -> ORM (Prisma). Both are IPv4 pooler URIs (Render is
+      # IPv4-only). DATABASE_URL = transaction pooler (6543, ?pgbouncer=true) for the app;
+      # DIRECT_URL = session pooler (5432) for Prisma migrations. Put both in, same DB as local dev.
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       # Secrets — Render generates strong random values; both api and connector read the same var.
       - key: JWT_ACCESS_SECRET
