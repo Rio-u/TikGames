@@ -51,3 +51,23 @@ services:
         sync: false
       - key: TURNSTILE_SECRET_KEY
         sync: false
+      # --- Desktop app licensing (Electron .exe gate) ------------------------------------
+      # Shared product password users type to activate the desktop app. Fail-closed: blank = nobody
+      # can activate. This is the one you hand out with the exe.
+      - key: LICENSE_PASSWORD
+        sync: false
+      # Blank = devices wait for your manual Discord approval (recommended). "1" = auto-approve.
+      - key: LICENSE_AUTO_APPROVE
+        sync: false
+      # Signs device session tokens. Let Render generate it.
+      - key: LICENSE_JWT_SECRET
+        generateValue: true
+      # Discord admin bot (approve/block/kill). The token lives ONLY here, never in the exe.
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      # Your Discord server id (slash commands register instantly instead of ~1h globally).
+      - key: DISCORD_GUILD_ID
+        sync: false
+      # Comma-separated Discord user ids allowed to run the licence commands. Blank = nobody.
+      - key: DISCORD_ADMIN_USER_IDS
+        sync: false

@@ -5,9 +5,10 @@
   "description": "TikGames desktop shell (Electron). A thin, hardened client: it fingerprints the machine, activates against the licensing API with the product password, waits for admin approval, then loads the dashboard. No secrets ship in the build.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/stamp-config.mjs && tsc -p tsconfig.json",
     "dev": "pnpm build && electron .",
-    "dist": "pnpm build && electron-builder --win --x64"
+    "dist": "node scripts/stamp-config.mjs && tsc -p tsconfig.json && electron-builder --win --x64",
+    "stamp": "node scripts/stamp-config.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

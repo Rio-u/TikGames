@@ -131,3 +131,51 @@ git push origin main
 - **Atlas M0:** 512 ميجا تخزين — كفاية للبداية.
 - **البث الحقيقي من تيك توك:** محتاج `EULER_STREAM_API_KEY` (نسخة مجانية بحد استخدام). التعليقات
   الوهمية بتشتغل من غيره.
+
+---
+
+## ٦) البرنامج المكتبي (الـ exe) والترخيص
+
+البرنامج المكتبي عميل خفيف — بيتكلم مع نفس الـ API اللي نشرته فوق على Render. فمحتاج بس تزوّد
+شوية متغيرات على Render، وتبني الـ exe وهو مأشّر على روابطك المنشورة.
+
+### أ) متغيّرات إضافية على Render
+
+في **Render → tikgames-backend → Environment** زوّد:
+
+- `LICENSE_PASSWORD` = الباسورد اللي هتديه للناس عشان يفعّلوا البرنامج. **فاضي = محدش يقدر يفعّل.**
+- `LICENSE_AUTO_APPROVE` = سيبها فاضية عشان توافق على كل جهاز يدوي (المفضّل)، أو `1` لتفعيل تلقائي.
+- `DISCORD_BOT_TOKEN` = توكن بوت ديسكورد (اعمله من https://discord.com/developers ← New Application
+  ← Bot ← Reset Token). اعمل invite للبوت على سيرفرك بصلاحية `applications.commands`.
+- `DISCORD_GUILD_ID` = آي دي سيرفر الديسكورد بتاعك (فعّل Developer Mode ← يمين على السيرفر ← Copy ID).
+- `DISCORD_ADMIN_USER_IDS` = آي ديك في ديسكورد (وأي أدمن تاني)، مفصولين بفاصلة. **فاضي = محدش.**
+- `LICENSE_JWT_SECRET` — Render بيولّده تلقائي، ما تلمسهوش.
+
+احفظ → Render هيعمل redeploy. البوت بيشتغل تلقائي مع الـ API، ومحتاجش سيرفر منفصل.
+
+بعد كده جرّب من ديسكورد: اكتب `/pending` — المفروض يرد عليك (لو مردّش، اتأكد إن آي ديك في
+`DISCORD_ADMIN_USER_IDS` وإن البوت متضاف للسيرفر). أوامر البوت كلها في
+[apps/desktop/README.md](apps/desktop/README.md).
+
+### ب) بناء الـ exe على روابطك
+
+من جهازك، بعد ما ياخد Render و Vercel روابطهم:
+
+```bash
+APP_API_URL="https://tikgames-backend.onrender.com" \
+APP_DASHBOARD_URL="https://tikgames-dashboard.vercel.app" \
+pnpm --filter @tikgames/desktop dist
+```
+
+المتغيرين دول بيتحطوا تلقائي في `config.json` قبل البناء (سكربت stamp-config)، فالـ exe يطلع
+مأشّر على سيرفرك على طول. المثبّت هيظهر في `apps/desktop/release/TikGames Setup <version>.exe` —
+ده اللي تبعته للناس.
+
+> تنبيه: المثبّت مش موقّع رقمياً، فأول تشغيل ويندوز SmartScreen ممكن يحذّر — "More info → Run
+> anyway". إزالة التحذير محتاجة شهادة توقيع كود مدفوعة.
+
+### الخلاصة
+1. انشر الـ API على Render (+ متغيرات الترخيص فوق) والداشبورد/الأوفرلاي على Vercel.
+2. ابنِ الـ exe بالأمر اللي فوق.
+3. ابعت الـ exe + الباسورد للشخص. هو يفتح، يكتب الباسورد، يستنى موافقتك من `/approve` في ديسكورد،
+   ويلعب. وأنت تقدر تقفله أي وقت بـ `/kill`.
